@@ -1,0 +1,46 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: helpdesk
+      POSTGRES_USER: helpdesk
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U helpdesk -d helpdesk"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://helpdesk:${POSTGRES_PASSWORD}@db:5432/helpdesk
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
+      SEED_PASSWORD: ${SEED_PASSWORD:-}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
+      SECURE_COOKIE: ${SECURE_COOKIE:-false}
+      UPLOAD_DIR: /app/uploads
+    volumes:
+      - attachments:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  frontend:
+    build: ./frontend
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+volumes:
+  postgres_data:
+  attachments:

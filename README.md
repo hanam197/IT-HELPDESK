@@ -54,20 +54,39 @@ Mở **http://localhost:5173**. Vite proxy `/api` tới backend cổng 8000; fro
 
 Swagger: **http://localhost:8000/docs**, OpenAPI: `/openapi.json`. Đăng nhập qua UI trước; các request ghi cần header `X-Requested-With: Helpdesk`.
 
+## Luồng Warehouse và Station
+
+- Tạo thiết bị mới tại **Warehouse → Receive asset**. Bắt buộc chọn kho và nhập serial; status ban đầu là Available. Hệ thống tạo asset, vị trí kho và phiếu RECEIVE trong cùng transaction. Code vẫn được sinh từ Model + Serial.
+- **Receive consumable / return** nhận consumable mới/có sẵn theo số lượng, hoặc nhận lại asset đã xuất. Nhận lại asset đóng assignment đang mở và ghi tình trạng trả.
+- **Issue stock** bắt buộc chọn người nhận hoặc station hoạt động (có thể chọn cả hai). Lưu ngày xuất, người thao tác, tình trạng và ghi chú. Asset xuất cho station chuyển In Use; cấp cho người dùng tạo assignment. Xuất chỉ cho người dùng đóng vị trí kho, không tự suy đoán station.
+- Không thể xuất trùng asset, xuất sai kho, xuất vượt tồn hoặc sửa trực tiếp số lượng consumable. Asset còn trong kho phải qua Issue stock trước khi sử dụng các thao tác điều chuyển/cấp phát thông thường.
+- **Import XLSX** nằm trong Warehouse, dùng template có cột `warehouse` (mã kho). Mỗi asset import cũng tạo phiếu nhập kho; không import trực tiếp vào station.
+- **Stations / Locations** có cây Site → Team → Station, tìm kiếm, lọc Active/Inactive, ảnh vị trí và các tab Overview, Assets, Network, People, History. Thông tin vật lý, department, floor và area có thể chỉnh sửa.
+- Database cũ được giữ nguyên; migration không tạo phiếu nhập giả cho thiết bị lịch sử. Nếu chưa có kho, chọn **Add warehouse** và cấu hình vị trí kho trước khi nhận thiết bị mới.
+
+## Phân chia module
+
+- **Warehouse:** nhập kho, xuất kho và import thiết bị; các bảng danh sách được chuyển sang Inventory.
+- **Inventory (Tồn kho):** tên mới của Consumables and parts; gồm Assets đang ở kho, Consumables và lịch sử nhập/xuất, lọc theo kho.
+- **Asset → History:** bảng lịch sử toàn bộ vòng đời của từng thiết bị: nhập/xuất kho, cấp phát/thu hồi, di chuyển, sửa chữa, thay đổi thông tin và ngừng sử dụng. Không còn module History riêng; lịch sử nhập/xuất nằm trong Inventory, audit log nằm trong Settings. URL History cũ tự chuyển hướng.
+- **Asset detail:** lấy Model làm tiêu đề; không nhập/hiển thị Name, Source, Warranty Expiry hay Notes. Received by và Handed over by lấy từ người thực hiện giao dịch, không phải người nhận. Dữ liệu cũ thiếu người thực hiện hiển thị trống thay vì suy đoán. Quick actions nằm bên phải; xuất kho mở popup ngay trong Asset/Inventory, tự chọn thiết bị/vật tư và kho.
+- **Ngừng sử dụng:** nhập lý do, thu hồi cấp phát và hoàn tất bảo trì trước khi ngừng sử dụng. Thao tác này đóng vị trí hiện tại, đưa thiết bị ra khỏi tồn kho và giữ lịch sử.
+- **Stations:** một mục sidebar trực tiếp, không còn menu con All locations.
+- **Settings → Asset types:** quản lý loại thiết bị. Asset operations không còn là module riêng; thao tác vẫn có trên chi tiết asset. Ticket được gỡ khỏi giao diện, dữ liệu cũ được giữ lại.
+
 ## Chức năng
 
-- **Dashboard:** 10 KPI, phân bố ticket/asset, hoạt động 7 ngày, attention và audit gần đây; liên kết drill-down.
-- **Assets:** tạo/sửa thiết bị, serial/code unique, loại thiết bị có capability flags, Overview / Network / Location / Assignment / Tickets / Maintenance / History / Ports. QR mở `/assets/{id}` và in nhãn bằng trình duyệt.
+- **Dashboard:** 10 KPI, phân bố asset, hoạt động 7 ngày, attention và audit gần đây; liên kết drill-down.
+- **Assets:** tạo/sửa thiết bị, serial/code unique, upload ảnh JPG/PNG/WebP, import XLSX theo template, loại thiết bị có capability flags, Overview / Network / History. Tạo mới tại Warehouse, bắt buộc có receiving warehouse và ghi Asset + Location History + phiếu nhập kho trong cùng transaction. Trang inventory giữ xuất XLSX và không hiển thị CSV. QR mở `/assets/{id}` và in nhãn bằng trình duyệt.
 - **Operations:** move, assign, transfer, return; chuyển vị trí không thay đổi người chịu trách nhiệm. Assignment không làm thay đổi location. Thu hồi ghi tình trạng trả; lịch sử luôn được giữ lại.
-- **Helpdesk:** số `INC-YYYY-XXXXX`, status/priority/category từ database, người báo/người xử lý, hạn xử lý, timeline, comment/note nội bộ, attachments tối đa 10 MB, liên kết asset/location/KB, tạo maintenance và tạo KB từ ticket.
 - **Network/IPAM:** VLAN, subnet IPv4/IPv6, gateway/DNS, interface/MAC/hostname, IP, switch port, native/tagged VLAN. Tìm IP/MAC/hostname/asset/switch/port. Một IP có duy nhất một bản ghi; V1 không cho phép gán trùng IP bằng override.
-- **Maintenance:** liên kết ticket, diagnosis/action/parts/cost/vendor; đưa thiết bị vào Repair, khôi phục trạng thái phù hợp khi hoàn tất hoặc hủy; bảo toàn trường hợp thiết bị được trả trong lúc đang sửa.
-- **Knowledge Base:** nội dung Markdown, category, draft/published/archived, liên kết ticket. Markdown không render HTML tùy ý.
+- **Maintenance:** diagnosis/action/parts/cost/vendor; đưa thiết bị vào MAINTENANCE, khôi phục trạng thái phù hợp khi hoàn tất hoặc hủy; bảo toàn trường hợp thiết bị được trả trong lúc đang sửa.
+- **Knowledge Base:** nội dung Markdown, category, draft/published/archived. Markdown không render HTML tùy ý.
 - **Reports:** bảng có filter, grouping, CSV/XLSX; inventory, assignments/history, tickets, IP/subnet/port và maintenance. Có tổng chi phí, thời gian giải quyết trung bình và thống kê lỗi lặp lại. File export áp dụng cùng query/filter và trung hòa công thức spreadsheet.
 - **Global search:** code/serial/IP/MAC/hostname/ticket/station/user/KB, truy tiếp asset và các liên kết. Phím tắt Ctrl/Cmd+K.
 - **Administration:** local login, users/roles, master data, audit logs chỉ đọc, archive qua API cho các bản ghi không còn được tham chiếu.
 
-Giao diện dùng Tailwind, Lucide, TanStack Query/Table và các component theo cấu trúc shadcn/ui với Radix Dialog/Slot. Các bảng có tìm kiếm, chọn cột, sort và phân trang. Trường Photo hiện nhận URL ảnh; file upload trực tiếp áp dụng cho ticket attachments.
+Giao diện dùng Tailwind, Lucide, TanStack Query/Table và các component theo cấu trúc shadcn/ui với Radix Dialog/Slot. Các bảng có tìm kiếm, chọn cột, sort và phân trang. Ảnh Asset và ticket attachment được lưu trong volume `attachments`; ảnh Asset giới hạn 5 MB, ticket attachment giới hạn 10 MB.
 
 ## Phân quyền
 
@@ -174,3 +193,14 @@ Test bao gồm: login/RBAC/CSRF, location và assignment history, transfer/retur
 - Notifications lấy từ attention query; chưa có push/email notification.
 - Không có discovery, SNMP, monitoring thời gian thực, vendor API, chatbot, native mobile, microservices hoặc Kubernetes.
 - Docker Compose chưa chạy được trong môi trường xây dựng vì không cài Docker; migration/seed/test và browser đã chạy với PostgreSQL 16 native. Xem [VALIDATION.md](VALIDATION.md) để biết bằng chứng kiểm chứng.
+
+
+## Vòng đời tài sản và giao diện tiếng Việt
+
+- Giao diện mặc định tiếng Việt trên các module, biểu mẫu, bảng, thông báo nghiệp vụ và tiêu đề xuất CSV/XLSX. Mã API, tên model/serial và dữ liệu người dùng nhập giữ nguyên. Biểu mẫu nhập Excel dùng tiêu đề tiếng Việt, vẫn nhận tệp có tiêu đề kỹ thuật cũ.
+- Trạng thái hiện tại nằm trên Asset: `current_status`, `current_location_id`, `current_assignee_id`. `status_id` được đồng bộ để tương thích bộ lọc cũ; không được chỉnh trạng thái bằng PATCH thông thường.
+- Tám sự kiện: `RECEIVED`, `ISSUED`, `RETURNED`, `MOVED`, `REASSIGNED`, `MAINTENANCE`, `RETIRED`, `UPDATED`. Mỗi thao tác tạo một sự kiện cùng transaction, lưu ảnh chụp dữ liệu trước/sau; không tạo `STATUS_CHANGED` riêng.
+- Nhập tài sản và thu hồi → `AVAILABLE`; cấp phát → `IN_USE`; bảo trì → `MAINTENANCE`, hoàn tất/hủy khôi phục `AVAILABLE` hoặc `IN_USE`. Điều chuyển chỉ đổi vị trí. Chuyển người phụ trách dùng `/api/assets/{id}/reassign`, giữ vị trí và `IN_USE`, lưu cả người cũ/mới.
+- `RETIRED` chỉ có nghĩa ngừng sử dụng, chặn cấp phát/điều chuyển và không quản lý giá trị thanh lý. Cần thu hồi người phụ trách và kết thúc bảo trì trước thao tác này.
+- Lịch sử giữ bảng hiện tại, mới nhất trước, lọc tám loại sự kiện và mở popup bằng click hoặc Enter. Popup cho xem trạng thái, vị trí, người phụ trách trước/sau và nội dung thay đổi.
+- Migration `0005` chuẩn hóa trạng thái và bổ sung lịch sử từ bản ghi cũ, giữ nguyên bản ghi gốc. Sao lưu database trước `alembic upgrade head`. Migration không cho downgrade xóa bằng chứng trước/sau; cần khôi phục bản sao lưu nếu quay lại phiên bản cũ. Thông tin người thực hiện không có trong dữ liệu cũ được hiển thị “Chưa ghi nhận”.

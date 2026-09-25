@@ -3,7 +3,7 @@ import io
 import json
 import secrets
 from pathlib import Path
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from collections import Counter
 import ipaddress
 import jwt
@@ -14,12 +14,13 @@ from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 from sqlalchemy import select, func, or_, cast, String, inspect
 from sqlalchemy.exc import IntegrityError
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
+from PIL import Image, UnidentifiedImageError
 from .database import get_db, settings
 from . import models as m
 from .schemas import RESOURCES, READ_ONLY, SCHEMAS, Login, Move, Assign, Return, Transfer, Comment
 from .security import current_user, authorize, passwords, check_login_limit
-from .services import get, serialize, save, audit, activity, move, assign, return_asset, master
+from .services import get, serialize, save, audit, activity, move, assign, return_asset, master, next_number
 
 app = FastAPI(title='IT Helpdesk & Asset Management', version='1.0.0')
 
@@ -66,9 +67,9 @@ def me(user=Depends(current_user)): return serialize(user)
 @app.get('/api/meta')
 def metadata(user=Depends(current_user),db=Depends(get_db)):
     result={}
-    for key in ['users','master-data','asset-types','locations','assets','vlans','subnets','interfaces','tickets','articles']:
+    for key in ['users','master-data','asset-types','locations','assets','warehouses','inventory-items','vlans','subnets','interfaces','articles']:
         rows=db.scalars(select(RESOURCES[key]).where(RESOURCES[key].archived == False)).all()
-        result[key]=[({'id':r.id,'name':r.name,'username':r.username,'department':r.department} if key=='users' else serialize(r)) for r in rows]
+        result[key]=[({'id':r.id,'name':r.name,'username':r.username,'department':r.department} if key=='users' else ({**serialize(r),'path':location_path(db,r.id)} if key=='locations' else serialize(r))) for r in rows]
     return result
 
 def location_path(db,id):
@@ -98,6 +99,23 @@ def enriched(db,obj):
         data['location_id']=loc.location_id if loc else None
         data['assigned_to']=db.get(m.User,ass.user_id).name if ass else None
         data['assignment_id']=ass.id if ass else None
+        data['assignment_user_id']=ass.user_id if ass else None
+        data['current_assignment_since']=ass.created_at.isoformat() if ass else None
+        data['location_since']=loc.created_at.isoformat() if loc else None
+        data['since']=ass.created_at.isoformat() if ass else (loc.created_at.isoformat() if loc else None)
+        data['photo_url']=f'/api/assets/{obj.id}/photo' if obj.photo else None
+    if isinstance(obj,m.AssetOperation):
+        for prefix in ('from', 'to'):
+            entity_type=getattr(obj, f'{prefix}_entity_type')
+            entity_id=getattr(obj, f'{prefix}_entity_id')
+            label_value=None
+            if entity_type == 'USER' and entity_id:
+                linked=db.get(m.User, entity_id); label_value=linked.name if linked else None
+            elif entity_type == 'LOCATION' and entity_id:
+                label_value=location_path(db, entity_id)
+            elif entity_type == 'SUPPLIER':
+                label_value='Supplier'
+            data[f'{prefix}_label']=label_value
     if isinstance(obj,m.IPAddress):
         interface=db.get(m.NetworkInterface,obj.interface_id) if obj.interface_id else None
         subnet=db.get(m.Subnet,obj.subnet_id)
@@ -153,32 +171,22 @@ def query_rows(db,resource,user,q='',filters='{}',view='',location=''):
 @app.get('/api/dashboard')
 def dashboard(user=Depends(current_user),db=Depends(get_db)):
     assets=[enriched(db,r) for r in db.scalars(select(m.Asset).where(m.Asset.archived==False))]
-    tickets=[enriched(db,r) for r in db.scalars(select(m.Ticket).where(m.Ticket.archived==False))]
     maintenance=[enriched(db,r) for r in db.scalars(select(m.Maintenance).where(m.Maintenance.archived==False))]
     codes={r.id:r.code for r in db.scalars(select(m.MasterData))}
-    today=datetime.now(timezone.utc).date().isoformat(); now=datetime.now(timezone.utc).isoformat()
-    open_t=[t for t in tickets if codes[t['status_id']] not in {'resolved','closed','cancelled'}]
-    overdue=[t for t in open_t if t['due_at'] and t['due_at']<now]
     active=[x for x in maintenance if x['end_at'] is None]
-    stats={'Total assets':len(assets),'Assets in use':sum(codes[a['status_id']]=='in_use' for a in assets),'Available assets':sum(codes[a['status_id']]=='available' for a in assets),'Under repair':sum(codes[a['status_id']]=='repair' for a in assets),'Open tickets':len(open_t),'In progress':sum(codes[t['status_id']]=='in_progress' for t in tickets),'Overdue tickets':len(overdue),'Resolved today':sum(bool(t['resolved_at'] and t['resolved_at'].startswith(today)) for t in tickets),'Active maintenance':len(active),'Allocated devices':sum(bool(a['assignment_id']) for a in assets)}
+    stats={'Total assets':len(assets),'Available assets':sum(codes[a['status_id']]=='available' for a in assets),'Active assets':sum(codes[a['status_id']] in {'active','in_use'} for a in assets),'Assigned assets':sum(bool(a['assignment_id']) for a in assets),'Assets in warehouse':sum(codes[a['status_id']]=='available' and 'warehouse' in (a.get('location_label') or '').lower() for a in assets),'Assets under repair':sum(codes[a['status_id']] in {'repair','maintenance'} for a in assets),'Broken assets':sum(codes[a['status_id']]=='broken' for a in assets),'Low stock items':sum(float(r.quantity)<float(r.minimum_stock) for r in db.scalars(select(m.InventoryItem).where(m.InventoryItem.archived==False))),'Active maintenance':len(active)}
     distribution=lambda rows,key:dict(Counter(r.get(key) or 'Unassigned' for r in rows))
-    attention=[{'title':t['title'],'subtitle':t['number']+' · Overdue ticket','resource':'tickets','id':t['id']} for t in overdue]
-    attention += [{'title':a['code']+' · '+a['name'],'subtitle':'Asset under repair','resource':'assets','id':a['id']} for a in assets if codes[a['status_id']]=='repair']
-    attention += [{'title':x['number'],'subtitle':'Overdue maintenance','resource':'maintenance','id':x['id']} for x in active if x['due_at'] and x['due_at']<now]
+    attention=[{'title':a['code']+' · '+a['name'],'subtitle':'Asset under repair','resource':'assets','id':a['id']} for a in assets if codes[a['status_id']] in {'repair','maintenance','broken'}]
+    attention += [{'title':x['number'],'subtitle':'Active maintenance','resource':'maintenance','id':x['id']} for x in active]
     for ip in db.scalars(select(m.IPAddress).where(m.IPAddress.archived==False)):
         if codes[ip.status_id]=='conflict': attention.append({'title':ip.address,'subtitle':'IP conflict','resource':'ip-addresses','id':ip.id})
-    repeated=Counter(t['asset_id'] for t in tickets if t['asset_id'])
-    attention += [{'title':a['code'],'subtitle':f"Repeated issues · {repeated[a['id']]} tickets",'resource':'assets','id':a['id']} for a in assets if repeated[a['id']]>=3]
-    trend=[]
-    for day in range(6,-1,-1):
-        date=(datetime.now(timezone.utc)-timedelta(days=day)).date().isoformat()
-        trend.append({'date':date,'created':sum(t['created_at'].startswith(date) for t in tickets),'resolved':sum(bool(t['resolved_at'] and t['resolved_at'].startswith(date)) for t in tickets)})
-    return {'stats':stats,'ticket_status':distribution(tickets,'status_label'),'ticket_priority':distribution(tickets,'priority_label'),'ticket_category':distribution(tickets,'category_label'),'asset_type':distribution(assets,'type_label'),'asset_status':distribution(assets,'status_label'),'asset_location':distribution(assets,'location_label'),'trend':trend,'attention':attention,'recent_tickets':tickets[-6:][::-1],'activities':[enriched(db,a) for a in db.scalars(select(m.AuditLog).order_by(m.AuditLog.id.desc()).limit(8))]}
+    operations=[enriched(db,r) for r in db.scalars(select(m.AssetOperation).order_by(m.AssetOperation.operation_date.desc()).limit(12))]
+    return {'stats':stats,'asset_type':distribution(assets,'type_label'),'asset_status':distribution(assets,'status_label'),'asset_location':distribution(assets,'location_label'),'operations':operations,'recent_returns':[r for r in operations if r['operation_type']=='RETURN'][:5],'recent_assignments':[r for r in operations if r['operation_type']=='ASSIGN'][:5],'attention':attention,'activities':[enriched(db,a) for a in db.scalars(select(m.AuditLog).order_by(m.AuditLog.id.desc()).limit(8))]}
 
 @app.get('/api/search')
 def search(q:str=Query(min_length=2,max_length=150),user=Depends(current_user),db=Depends(get_db)):
     result=[]; asset_ids=set()
-    for resource in ['assets','tickets','interfaces','ip-addresses','locations','articles','users']:
+    for resource in ['assets','interfaces','ip-addresses','locations','articles','users','warehouses','inventory-items']:
         model=RESOURCES[resource]
         cols=[c for c in inspect(model).columns if isinstance(c.type,String) and c.name!='password_hash']
         rows=db.scalars(select(model).where(model.archived==False,or_(*[cast(c,String).ilike('%'+q+'%') for c in cols])).limit(15))
@@ -197,12 +205,19 @@ def search(q:str=Query(min_length=2,max_length=150),user=Depends(current_user),d
 def asset_detail(id:int,user=Depends(current_user),db=Depends(get_db)):
     asset=get(db,m.Asset,id); data=enriched(db,asset)
     data['asset_type']=serialize(get(db,m.AssetType,asset.type_id))
-    for resource,model,field in [('location-history',m.LocationHistory,'asset_id'),('assignments',m.Assignment,'asset_id'),('interfaces',m.NetworkInterface,'asset_id'),('tickets',m.Ticket,'asset_id'),('maintenance',m.Maintenance,'asset_id'),('switch-ports',m.SwitchPort,'switch_id')]:
+    for resource,model,field in [('location-history',m.LocationHistory,'asset_id'),('assignments',m.Assignment,'asset_id'),('asset-operations',m.AssetOperation,'asset_id'),('interfaces',m.NetworkInterface,'asset_id'),('maintenance',m.Maintenance,'asset_id'),('switch-ports',m.SwitchPort,'switch_id')]:
         data[resource]=[enriched(db,r) for r in db.scalars(select(model).where(getattr(model,field)==id).order_by(model.id.desc()))]
     ids=[r['id'] for r in data['interfaces']]
     data['ip-addresses']=[enriched(db,r) for r in db.scalars(select(m.IPAddress).where(m.IPAddress.interface_id.in_(ids)))]
     data['connected_ports']=[enriched(db,r) for r in db.scalars(select(m.SwitchPort).where(m.SwitchPort.connected_asset_id==id))]
     data['audit-logs']=[enriched(db,r) for r in db.scalars(select(m.AuditLog).where(or_((m.AuditLog.object_type=='assets')&(m.AuditLog.object_id==id),m.AuditLog.new_value['asset_id'].as_integer()==id)).order_by(m.AuditLog.id.desc()))]
+    return data
+
+@app.get('/api/locations/{id}/detail')
+def location_detail(id:int,user=Depends(current_user),db=Depends(get_db)):
+    location=get(db,m.Location,id); data=enriched(db,location); data['path']=location_path(db,id)
+    current_asset_ids=select(m.LocationHistory.asset_id).where(m.LocationHistory.location_id==id,m.LocationHistory.ended_at==None)
+    data['assets']=[enriched(db,a) for a in db.scalars(select(m.Asset).where(m.Asset.id.in_(current_asset_ids),m.Asset.archived==False).order_by(m.Asset.code))]
     return data
 
 @app.post('/api/assets/{id}/move')
@@ -223,6 +238,111 @@ def transfer_device(id:int,payload:Transfer,user=Depends(current_user),db=Depend
 def asset_qr(id:int,user=Depends(current_user),db=Depends(get_db)):
     get(db,m.Asset,id); buffer=io.BytesIO(); qrcode.make(f'{settings.frontend_url}/assets/{id}').save(buffer,format='PNG'); buffer.seek(0)
     return StreamingResponse(buffer,media_type='image/png')
+
+@app.post('/api/assets/register',status_code=201)
+def register_asset(payload:dict,user=Depends(current_user),db=Depends(get_db)):
+    """Create an asset and its first immutable location record atomically."""
+    authorize(user,'assets')
+    location_id=payload.pop('location_id',None)
+    if not location_id: raise HTTPException(422,'Location is required when creating an asset')
+    asset=save(db,'assets',parse_payload('assets',payload),user)
+    move(db,asset.id,Move(location_id=location_id,reason='Initial asset registration'),user)
+    db.commit(); return enriched(db,asset)
+
+@app.post('/api/inventory/transactions',status_code=201)
+def inventory_transaction(payload:dict,user=Depends(current_user),db=Depends(get_db)):
+    authorize(user,'warehouses')
+    transaction_type=str(payload.get('transaction_type') or '').upper()
+    if transaction_type not in {'RECEIVE','ISSUE'}: raise HTTPException(422,'Transaction type must be RECEIVE or ISSUE')
+    warehouse_id=payload.get('warehouse_id'); item_id=payload.get('item_id'); quantity=payload.get('quantity')
+    if not warehouse_id or not item_id or quantity is None: raise HTTPException(422,'Warehouse, item and quantity are required')
+    try: quantity=float(quantity)
+    except (TypeError,ValueError): raise HTTPException(422,'Quantity must be numeric')
+    if quantity <= 0: raise HTTPException(422,'Quantity must be greater than zero')
+    warehouse=get(db,m.Warehouse,warehouse_id)
+    item=db.scalar(select(m.InventoryItem).where(m.InventoryItem.id==item_id,m.InventoryItem.archived==False).with_for_update())
+    if not item: raise HTTPException(404,'Inventory item not found')
+    if item.warehouse_id != warehouse.id: raise HTTPException(422,'Item does not belong to this warehouse')
+    current=float(item.quantity or 0)
+    if transaction_type=='ISSUE' and current < quantity: raise HTTPException(422,'Insufficient stock')
+    item.quantity=current + quantity if transaction_type=='RECEIVE' else current - quantity
+    row=m.InventoryTransaction(number=next_number(db,'STK'),transaction_type=transaction_type,warehouse_id=warehouse.id,item_id=item.id,quantity=quantity,source_vendor=payload.get('source_vendor'),condition=payload.get('condition'),performed_by=user.id,note=payload.get('note'))
+    db.add(row); db.flush(); audit(db,user,transaction_type.lower(),'inventory-transactions',row); db.commit()
+    return enriched(db,row)
+
+@app.post('/api/assets/{id}/photo')
+async def upload_asset_photo(id:int,file:UploadFile=File(...),user=Depends(current_user),db=Depends(get_db)):
+    authorize(user,'assets'); asset=get(db,m.Asset,id)
+    content=await file.read(5*1024*1024+1)
+    if len(content)>5*1024*1024: raise HTTPException(413,'Maximum photo size is 5 MB')
+    try:
+        image=Image.open(io.BytesIO(content)); image.verify(); image_format=image.format
+    except (UnidentifiedImageError,OSError): raise HTTPException(422,'Select a valid JPG, PNG or WebP image')
+    extensions={'JPEG':'jpg','PNG':'png','WEBP':'webp'}
+    if image_format not in extensions: raise HTTPException(422,'Only JPG, PNG and WebP photos are supported')
+    directory=Path(settings.upload_dir)/'asset-photos'; directory.mkdir(parents=True,exist_ok=True)
+    key=f'{id}-{secrets.token_hex(16)}.{extensions[image_format]}'; path=directory/key; path.write_bytes(content)
+    old=serialize(asset); previous=asset.photo; asset.photo=key
+    audit(db,user,'photo uploaded','assets',asset,old); db.commit()
+    if previous: (directory/Path(previous).name).unlink(missing_ok=True)
+    return enriched(db,asset)
+
+@app.get('/api/assets/{id}/photo')
+def asset_photo(id:int,user=Depends(current_user),db=Depends(get_db)):
+    asset=get(db,m.Asset,id)
+    if not asset.photo: raise HTTPException(404,'Asset has no photo')
+    path=Path(settings.upload_dir)/'asset-photos'/Path(asset.photo).name
+    if not path.is_file(): raise HTTPException(404,'Photo file not found')
+    return FileResponse(path)
+
+@app.get('/api/assets/import/template')
+def asset_import_template(user=Depends(current_user)):
+    book=Workbook(); sheet=book.active; sheet.title='Assets'
+    sheet.append(['asset_name','asset_type','status','location','brand','model','serial','received_date','handover_date','description'])
+    sheet.append(['Example laptop','Laptop','Available','Q7 / OUTBOUND / DG-01BD','Dell','Latitude 5440','SN-EXAMPLE-001','','',''])
+    sheet.freeze_panes='A2'; buffer=io.BytesIO(); book.save(buffer); buffer.seek(0)
+    return StreamingResponse(buffer,media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',headers={'Content-Disposition':'attachment; filename="asset-import-template.xlsx"'})
+
+@app.post('/api/assets/import',status_code=201)
+async def import_assets(file:UploadFile=File(...),user=Depends(current_user),db=Depends(get_db)):
+    authorize(user,'assets'); content=await file.read(5*1024*1024+1)
+    if len(content)>5*1024*1024: raise HTTPException(413,'Maximum import size is 5 MB')
+    try: book=load_workbook(io.BytesIO(content),read_only=True,data_only=True)
+    except Exception: raise HTTPException(422,'Select a valid XLSX workbook')
+    rows=book.active.iter_rows(values_only=True); headers=[str(v or '').strip().lower() for v in next(rows,())]
+    required={'asset_name','asset_type','status','location','model','serial'}
+    if not required.issubset(headers): raise HTTPException(422,f"Missing columns: {', '.join(sorted(required-set(headers)))}")
+    created=[]
+    try:
+        for row_number,values in enumerate(rows,start=2):
+            record=dict(zip(headers,values))
+            if not any(v not in (None,'') for v in values): continue
+            def required_text(key):
+                value=str(record.get(key) or '').strip()
+                if not value: raise HTTPException(422,f'Row {row_number}: {key} is required')
+                return value
+            type_name=required_text('asset_type'); status_value=required_text('status'); location_value=required_text('location')
+            asset_type=db.scalar(select(m.AssetType).where(func.lower(m.AssetType.name)==type_name.lower(),m.AssetType.archived==False))
+            status=db.scalar(select(m.MasterData).where(m.MasterData.group=='asset_status',m.MasterData.archived==False,or_(func.lower(m.MasterData.name)==status_value.lower(),func.lower(m.MasterData.code)==status_value.lower().replace(' ','_'))))
+            locations=[loc for loc in db.scalars(select(m.Location).where(m.Location.archived==False)) if location_path(db,loc.id).lower()==location_value.lower()]
+            if not asset_type: raise HTTPException(422,f'Row {row_number}: unknown asset type "{type_name}"')
+            if not status: raise HTTPException(422,f'Row {row_number}: unknown asset status "{status_value}"')
+            if len(locations)!=1: raise HTTPException(422,f'Row {row_number}: location must match one full path, for example Q7 / OFFICE')
+            data={'name':required_text('asset_name'),'type_id':asset_type.id,'status_id':status.id,'model':required_text('model'),'serial':required_text('serial')}
+            for key in ['brand','description']:
+                if record.get(key) not in (None,''): data[key]=str(record[key]).strip()
+            for key in ['received_date','handover_date']:
+                if record.get(key):
+                    value=record[key]
+                    data[key]=value.date() if isinstance(value,datetime) else value if isinstance(value,date) else date.fromisoformat(str(value))
+            asset=save(db,'assets',data,user); move(db,asset.id,Move(location_id=locations[0].id,reason='Imported asset registration'),user); created.append(asset)
+        if not created: raise HTTPException(422,'The workbook has no asset rows')
+        db.commit()
+    except HTTPException:
+        db.rollback(); raise
+    except (ValueError,TypeError) as exc:
+        db.rollback(); raise HTTPException(422,f'Invalid import value: {exc}')
+    return {'created':len(created),'assets':[enriched(db,a) for a in created]}
 
 @app.get('/api/tickets/{id}/detail')
 def ticket_detail(id:int,user=Depends(current_user),db=Depends(get_db)):
@@ -336,7 +456,9 @@ def parse_payload(resource,payload,partial=False):
 
 @app.post('/api/{resource}',status_code=201)
 def create(resource:str,payload:dict,user=Depends(current_user),db=Depends(get_db)):
-    authorize(user,resource); data=parse_payload(resource,payload); obj=save(db,resource,data,user); db.commit(); return enriched(db,obj)
+    authorize(user,resource)
+    if resource=='assets': raise HTTPException(422,'Use asset registration and provide an initial location')
+    data=parse_payload(resource,payload); obj=save(db,resource,data,user); db.commit(); return enriched(db,obj)
 
 @app.patch('/api/{resource}/{id}')
 def edit(resource:str,id:int,payload:dict,user=Depends(current_user),db=Depends(get_db)):

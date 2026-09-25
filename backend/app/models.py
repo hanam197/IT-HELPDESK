@@ -1,5 +1,5 @@
-from datetime import datetime, timezone
-from sqlalchemy import String, Text, ForeignKey, Boolean, DateTime, Numeric, Integer, JSON, Index, text, UniqueConstraint
+from datetime import date, datetime, timezone
+from sqlalchemy import String, Text, ForeignKey, Boolean, Date, DateTime, Numeric, Integer, JSON, Index, text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from .database import Base
 
@@ -32,8 +32,10 @@ class AssetType(Record, Base):
     __tablename__ = 'asset_types'
     name: Mapped[str] = mapped_column(String(100), unique=True)
     prefix: Mapped[str] = mapped_column(String(20))
+    track_serial: Mapped[bool] = mapped_column(default=True)
     track_location: Mapped[bool] = mapped_column(default=True)
     allow_assignment: Mapped[bool] = mapped_column(default=False)
+    allow_station: Mapped[bool] = mapped_column(default=True)
     track_network: Mapped[bool] = mapped_column(default=True)
     allow_ticket: Mapped[bool] = mapped_column(default=True)
     track_maintenance: Mapped[bool] = mapped_column(default=True)
@@ -45,17 +47,29 @@ class Location(Record, Base):
     kind: Mapped[str] = mapped_column(String(30))
     parent_id: Mapped[int | None] = mapped_column(ForeignKey('locations.id'))
     description: Mapped[str | None] = mapped_column(Text)
+    active: Mapped[bool] = mapped_column(default=True)
+    physical_location: Mapped[str | None] = mapped_column(String(200))
+    department: Mapped[str | None] = mapped_column(String(100))
+    floor: Mapped[str | None] = mapped_column(String(80))
+    area: Mapped[str | None] = mapped_column(String(80))
+    photo: Mapped[str | None] = mapped_column(Text)
     __table_args__ = (UniqueConstraint('parent_id', 'name'),)
 
 class Asset(Record, Base):
     __tablename__ = 'assets'
+    warehouse_id: Mapped[int | None] = mapped_column(ForeignKey('warehouses.id'))
+    current_status: Mapped[str] = mapped_column(String(20),default='AVAILABLE')
+    current_location_id: Mapped[int | None] = mapped_column(ForeignKey('locations.id'))
+    current_assignee_id: Mapped[int | None] = mapped_column(ForeignKey('users.id'))
     code: Mapped[str] = mapped_column(String(40), unique=True)
     name: Mapped[str] = mapped_column(String(150))
     type_id: Mapped[int] = mapped_column(ForeignKey('asset_types.id'))
     status_id: Mapped[int] = mapped_column(ForeignKey('master_data.id'))
     brand: Mapped[str | None] = mapped_column(String(100))
-    model: Mapped[str | None] = mapped_column(String(100))
-    serial: Mapped[str | None] = mapped_column(String(150), unique=True)
+    model: Mapped[str] = mapped_column(String(100))
+    serial: Mapped[str] = mapped_column(String(150), unique=True)
+    received_date: Mapped[date | None] = mapped_column(Date)
+    handover_date: Mapped[date | None] = mapped_column(Date)
     purchase_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     warranty_expiry: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     vendor: Mapped[str | None] = mapped_column(String(150))
@@ -87,6 +101,60 @@ class Assignment(Record, Base):
     condition_in: Mapped[str | None] = mapped_column(Text)
     note: Mapped[str | None] = mapped_column(Text)
     __table_args__ = (Index('uq_active_assignment', 'asset_id', unique=True, postgresql_where=text('returned_at IS NULL'), sqlite_where=text('returned_at IS NULL')),)
+
+class AssetOperation(Record, Base):
+    __tablename__ = 'asset_operations'
+    before_state: Mapped[dict | None] = mapped_column(JSON)
+    after_state: Mapped[dict | None] = mapped_column(JSON)
+    source_ref: Mapped[str | None] = mapped_column(String(120),unique=True)
+    number: Mapped[str] = mapped_column(String(40), unique=True)
+    asset_id: Mapped[int] = mapped_column(ForeignKey('assets.id'))
+    operation_type: Mapped[str] = mapped_column(String(30))
+    from_entity_type: Mapped[str | None] = mapped_column(String(30))
+    from_entity_id: Mapped[int | None] = mapped_column(Integer)
+    to_entity_type: Mapped[str | None] = mapped_column(String(30))
+    to_entity_id: Mapped[int | None] = mapped_column(Integer)
+    operation_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    condition_before: Mapped[str | None] = mapped_column(Text)
+    condition_after: Mapped[str | None] = mapped_column(Text)
+    performed_by: Mapped[int] = mapped_column(ForeignKey('users.id'))
+    reason: Mapped[str | None] = mapped_column(Text)
+    note: Mapped[str | None] = mapped_column(Text)
+
+class Warehouse(Record, Base):
+    __tablename__ = 'warehouses'
+    code: Mapped[str] = mapped_column(String(40), unique=True)
+    name: Mapped[str] = mapped_column(String(120))
+    location_id: Mapped[int] = mapped_column(ForeignKey('locations.id'))
+    description: Mapped[str | None] = mapped_column(Text)
+
+class InventoryItem(Record, Base):
+    __tablename__ = 'inventory_items'
+    code: Mapped[str] = mapped_column(String(40), unique=True)
+    name: Mapped[str] = mapped_column(String(150))
+    category: Mapped[str] = mapped_column(String(80))
+    unit: Mapped[str] = mapped_column(String(30), default='pcs')
+    quantity: Mapped[float] = mapped_column(Numeric(14, 3), default=0)
+    minimum_stock: Mapped[float] = mapped_column(Numeric(14, 3), default=0)
+    warehouse_id: Mapped[int] = mapped_column(ForeignKey('warehouses.id'))
+    bin_shelf: Mapped[str | None] = mapped_column(String(80))
+    description: Mapped[str | None] = mapped_column(Text)
+
+class InventoryTransaction(Record, Base):
+    __tablename__ = 'inventory_transactions'
+    recipient_user_id: Mapped[int | None] = mapped_column(ForeignKey('users.id'))
+    recipient_location_id: Mapped[int | None] = mapped_column(ForeignKey('locations.id'))
+    number: Mapped[str] = mapped_column(String(40), unique=True)
+    transaction_type: Mapped[str] = mapped_column(String(20))
+    warehouse_id: Mapped[int] = mapped_column(ForeignKey('warehouses.id'))
+    asset_id: Mapped[int | None] = mapped_column(ForeignKey('assets.id'))
+    item_id: Mapped[int | None] = mapped_column(ForeignKey('inventory_items.id'))
+    quantity: Mapped[float] = mapped_column(Numeric(14, 3), default=1)
+    transaction_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    source_vendor: Mapped[str | None] = mapped_column(String(150))
+    condition: Mapped[str | None] = mapped_column(Text)
+    performed_by: Mapped[int] = mapped_column(ForeignKey('users.id'))
+    note: Mapped[str | None] = mapped_column(Text)
 
 class Ticket(Record, Base):
     __tablename__ = 'tickets'

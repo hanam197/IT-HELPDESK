@@ -5,6 +5,7 @@ from . import models as m
 from .security import passwords
 from .services import save, move, assign, activity, master
 from .schemas import Move, Assign
+from .asset_events import snapshot, set_status, emit
 
 def seed():
     if len(settings.seed_password)<12: raise RuntimeError('SEED_PASSWORD must be at least 12 characters')
@@ -13,9 +14,12 @@ def seed():
         for username,name,role,department in [('admin','Nguyen Minh Anh','ADMIN','IT Operations'),('manager','Tran Quang Huy','IT_MANAGER','IT Operations'),('support','Le Hoang Nam','IT_SUPPORT','IT Support'),('viewer','Nguyen Van An','VIEWER','Warehouse')]:
             db.add(m.User(username=username,name=name,password_hash=passwords.hash(settings.seed_password),role=role,department=department))
         db.flush(); user=db.get(m.User,1)
-        groups={'asset_status':['Available','In Use','Assigned','Backup','Maintenance','Repair','Broken','Retired','Lost'],'ticket_status':['Open','Assigned','In Progress','Waiting','Resolved','Closed','Cancelled'],'priority':['Low','Medium','High','Critical'],'ticket_category':['Hardware','Network','Printer','Software','Access Request','Other'],'ip_status':['Available','Used','Reserved','DHCP','Conflict'],'port_mode':['Access','Trunk','General','Unknown'],'port_status':['Up','Down','Disabled'],'maintenance_type':['Repair','Preventive Maintenance','Cleaning','Upgrade','Replacement','Inspection'],'maintenance_status':['Open','Diagnosing','Repairing','Waiting Parts','Completed','Cancelled'],'kb_category':['Network','WiFi','Printer','Windows','Ubuntu','PDA','Camera','WMS','Hardware','Other'],'article_status':['Draft','Published','Archived']}
+        groups={'asset_status':['Available','In Use','Maintenance','Retired'],'ticket_status':['Open','Assigned','In Progress','Waiting','Resolved','Closed','Cancelled'],'priority':['Low','Medium','High','Critical'],'ticket_category':['Hardware','Network','Printer','Software','Access Request','Other'],'ip_status':['Available','Used','Reserved','DHCP','Conflict'],'port_mode':['Access','Trunk','General','Unknown'],'port_status':['Up','Down','Disabled'],'maintenance_type':['Repair','Preventive Maintenance','Cleaning','Upgrade','Replacement','Inspection'],'maintenance_status':['Open','Diagnosing','Repairing','Waiting Parts','Completed','Cancelled'],'kb_category':['Network','WiFi','Printer','Windows','Ubuntu','PDA','Camera','WMS','Hardware','Other'],'article_status':['Draft','Published','Archived']}
         for group,names in groups.items():
-            for name in names: db.add(m.MasterData(group=group,code=name.lower().replace(' ','_'),name=name))
+            for name in names:
+                code=name.lower().replace(' ','_')
+                if not db.scalar(select(m.MasterData.id).where(m.MasterData.group==group,m.MasterData.code==code)):
+                    db.add(m.MasterData(group=group,code=code,name=name))
         db.flush(); types={}
         for name,prefix,assignable,ports in [('Desktop','PC',True,False),('Laptop','LAP',True,False),('PDA','PDA',True,False),('Label Printer','PRN',False,False),('A4 Printer','A4',False,False),('Scanner','SCN',True,False),('Monitor','MON',False,False),('Access Point','AP',False,False),('Switch','SW',False,True),('Router','RTR',False,False),('Firewall','FW',False,False),('Camera','CAM',False,False),('NVR','NVR',False,False),('UPS','UPS',False,False),('Server','SRV',False,False),('Other','OTH',False,False)]:
             t=m.AssetType(name=name,prefix=prefix,allow_assignment=assignable,has_ports=ports); db.add(t); db.flush(); types[name]=t
@@ -23,17 +27,25 @@ def seed():
         for site in ['Q7','HN']:
             row=m.Location(name=site,kind='site'); db.add(row); db.flush(); sites[site]=row
             for area in ['OUTBOUND','INBOUND','QC','INVENTORY','TRANSPORT','OFFICE','IT STORAGE']:
-                a=m.Location(name=area,kind='area',parent_id=row.id); db.add(a); db.flush(); stations[site+'/'+area]=a
+                a=m.Location(name=area,kind='team',parent_id=row.id); db.add(a); db.flush(); stations[site+'/'+area]=a
                 for station in {'OUTBOUND':['DG-01BD','DG-12AD','DG-18BD'],'QC':['QC-01','QC-08'],'INBOUND':['IB-01'],'TRANSPORT':['TRANS-002']}.get(area,[]):
                     s=m.Location(name=station,kind='station',parent_id=a.id); db.add(s); db.flush(); stations[site+'/'+station]=s
+        for site in sites:
+            storage=m.Location(name='WAREHOUSE',kind='station',parent_id=stations[site+'/IT STORAGE'].id)
+            db.add(storage); db.flush()
+            db.add(m.Warehouse(code='WH-'+site,name=site+' IT Warehouse',location_id=storage.id))
+        db.flush()
         vlan=save(db,'vlans',{'tag':20,'name':'Warehouse devices','site_id':sites['Q7'].id,'description':'Printers, PDAs and workstations'},user)
         for tag,name in [(10,'Corporate'),(6,'Guest WiFi')]: save(db,'vlans',{'tag':tag,'name':name,'site_id':sites['Q7'].id},user)
         subnet=save(db,'subnets',{'cidr':'192.168.20.0/24','gateway':'192.168.20.1','dns':'1.1.1.1,8.8.8.8','vlan_id':vlan.id,'site_id':sites['Q7'].id},user)
         assets={}
         fixtures=[('PRN-012','Outbound label printer','Label Printer','Zebra','ZT411','in_use','DG-18BD'),('PDA-035','Warehouse handheld scanner','PDA','Zebra','TC52','available','DG-01BD'),('LAP-023','Operations laptop','Laptop','Dell','Latitude 5440','available','OFFICE'),('SW-005','SWKHOMAT1','Switch','Cisco','SG350-28P','in_use','IT STORAGE'),('AP-018','Outbound access point','Access Point','Ubiquiti','U6 Pro','in_use','DG-18BD'),('CAM-025','Loading dock camera','Camera','Hikvision','DS-2CD','in_use','TRANS-002'),('PRN-018','QC label printer','Label Printer','Zebra','ZD421','in_use','QC-08'),('A4-003','Office multifunction printer','A4 Printer','Brother','MFC-L5900','in_use','OFFICE')]
         for idx,(code,name,type_name,brand,model,status,station) in enumerate(fixtures):
-            a=save(db,'assets',{'code':code,'name':name,'type_id':types[type_name].id,'status_id':master(db,'asset_status',status),'brand':brand,'model':model,'serial':f'{brand.upper()}-2026-{idx+1000}','vendor':'IT Distribution Vietnam','cost':1200+idx*100,'purchase_date':m.now()-timedelta(days=120),'warranty_expiry':m.now()+timedelta(days=610),'description':f'{name} serving Q7 operations.'},user); assets[code]=a
-            move(db,a.id,Move(location_id=stations['Q7/DG-12AD'].id,reason='Initial installation'),user)
+            a=save(db,'assets',{'code':code,'name':name,'type_id':types[type_name].id,'status_id':master(db,'asset_status',status),'brand':brand,'model':model,'serial':f'{brand.upper()}-2026-{idx+1000}','received_date':(m.now()-timedelta(days=120)).date(),'handover_date':(m.now()-timedelta(days=110)).date(),'description':f'{name} serving Q7 operations.'},user); assets[code]=a
+            before=snapshot(db,a)
+            move(db,a.id,Move(location_id=stations['Q7/DG-12AD'].id,reason='Lắp đặt ban đầu'),user,warehouse_flow=True)
+            set_status(db,a,'IN_USE')
+            emit(db,a,'ISSUED',user,before,description='Cấp cho trạm vận hành')
             move(db,a.id,Move(location_id=stations['Q7/'+station].id,reason='Relocated for current operations'),user)
             interface=save(db,'interfaces',{'asset_id':a.id,'name':'Ethernet 1','mac':'7C:71:76:36:F5:F9' if idx==0 else f'AA:BB:CC:DD:EE:{idx:02X}','hostname':code.lower()},user)
             save(db,'ip-addresses',{'address':f'192.168.20.{80+idx}','interface_id':interface.id,'subnet_id':subnet.id,'status_id':master(db,'ip_status','used')},user)

@@ -3,8 +3,8 @@ from pydantic import BaseModel, ConfigDict, Field, create_model
 from sqlalchemy import inspect
 from . import models as m
 
-RESOURCES = {'users': m.User, 'master-data': m.MasterData, 'asset-types': m.AssetType, 'locations': m.Location, 'assets': m.Asset, 'assignments': m.Assignment, 'location-history': m.LocationHistory, 'tickets': m.Ticket, 'ticket-activities': m.TicketActivity, 'vlans': m.VLAN, 'subnets': m.Subnet, 'interfaces': m.NetworkInterface, 'ip-addresses': m.IPAddress, 'switch-ports': m.SwitchPort, 'maintenance': m.Maintenance, 'articles': m.Article, 'ticket-articles': m.TicketArticle, 'audit-logs': m.AuditLog}
-READ_ONLY = {'assignments', 'location-history', 'ticket-activities', 'audit-logs'}
+RESOURCES = {'users': m.User, 'master-data': m.MasterData, 'asset-types': m.AssetType, 'locations': m.Location, 'assets': m.Asset, 'assignments': m.Assignment, 'location-history': m.LocationHistory, 'asset-operations': m.AssetOperation, 'warehouses': m.Warehouse, 'inventory-items': m.InventoryItem, 'inventory-transactions': m.InventoryTransaction, 'tickets': m.Ticket, 'ticket-activities': m.TicketActivity, 'vlans': m.VLAN, 'subnets': m.Subnet, 'interfaces': m.NetworkInterface, 'ip-addresses': m.IPAddress, 'switch-ports': m.SwitchPort, 'maintenance': m.Maintenance, 'articles': m.Article, 'ticket-articles': m.TicketArticle, 'audit-logs': m.AuditLog}
+READ_ONLY = {'assignments', 'location-history', 'asset-operations', 'inventory-transactions', 'ticket-activities', 'audit-logs'}
 SYSTEM_FIELDS = {'id', 'created_at', 'updated_at', 'archived', 'password_hash', 'number', 'reporter_id', 'author_id', 'resolved_at', 'end_at', 'previous_status_id'}
 
 class StrictSchema(BaseModel):
@@ -15,6 +15,7 @@ def build_schema(model, partial=False):
     fields = {}
     for c in inspect(model).columns:
         if c.name in SYSTEM_FIELDS: continue
+        if model is m.Asset and c.name in {'code'}: continue
         t = c.type.python_type
         if c.nullable: t = t | None
         default = None if partial or c.nullable else c.default.arg if c.default is not None and c.default.is_scalar else None if c.default is not None else ...
@@ -41,6 +42,7 @@ class Assign(StrictSchema):
     note: str | None = None
 class Return(StrictSchema):
     condition_in: str = Field(min_length=2)
+    location_id: int | None = None
     note: str | None = None
 class Transfer(Assign):
     condition_in: str = Field(min_length=2)

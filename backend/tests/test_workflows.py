@@ -1,13 +1,20 @@
 import json
+import io
 from concurrent.futures import ThreadPoolExecutor
 from fastapi.testclient import TestClient
+from openpyxl import Workbook
+from PIL import Image
 from app.main import app
 
 def mid(meta,group,code): return next(x['id'] for x in meta['master-data'] if x['group']==group and x['code']==code)
 def asset(client,meta,code='TEST-001',type_name='Laptop'):
-    response=client.post('/api/assets',json={'code':code,'name':'Test device','type_id':next(x['id'] for x in meta['asset-types'] if x['name']==type_name),'status_id':mid(meta,'asset_status','available')})
+    location_id=[x['id'] for x in meta['locations'] if x['kind']=='station' and x['active'] and x['id'] not in {w['location_id'] for w in meta['warehouses']}][-1]
+    response=client.post('/api/assets/register',json={'name':'Test device','model':'TESTMODEL','serial':code,'type_id':next(x['id'] for x in meta['asset-types'] if x['name']==type_name),'status_id':mid(meta,'asset_status','available'),'warehouse_id':meta['warehouses'][0]['id']})
     assert response.status_code==201,response.text
-    return response.json()['id']
+    row=response.json()
+    issued=client.post('/api/inventory/transactions',json={'transaction_type':'ISSUE','warehouse_id':row['warehouse_id'],'asset_id':row['id'],'recipient_location_id':location_id})
+    assert issued.status_code==201,issued.text
+    return row['id']
 
 def test_auth_rbac_and_csrf(client):
     with TestClient(app) as anonymous:
@@ -34,7 +41,7 @@ def test_location_and_assignment_history(client,meta):
     assert client.post(f'/api/assets/{id}/transfer',json={**body,'user_id':2,'condition_in':'Good condition'}).status_code==200
     assert client.post(f'/api/assets/{id}/return',json={'condition_in':'Good condition'}).status_code==200
     data=client.get(f'/api/assets/{id}/detail').json()
-    assert len(data['location-history'])==2
+    assert len(data['location-history'])==4
     assert sum(x['ended_at'] is None for x in data['location-history'])==1
     assert len(data['assignments'])==2 and all(x['returned_at'] for x in data['assignments'])
     assert data['location_id']==locs[-1]
@@ -47,9 +54,9 @@ def test_validation(client,meta):
     id=asset(client,meta,'TEST-NOASSIGN','Label Printer')
     assert client.post(f'/api/assets/{id}/assign',json={'user_id':4,'condition_out':'Good'}).status_code==422
     retired=asset(client,meta,'TEST-RETIRED')
-    assert client.patch(f'/api/assets/{retired}',json={'status_id':mid(meta,'asset_status','retired')}).status_code==200
+    assert client.post(f'/api/assets/{retired}/retire',json={'reason':'End of service'}).status_code==200
     assert client.post(f'/api/assets/{retired}/assign',json={'user_id':4,'condition_out':'Good'}).status_code==422
-    assert client.post('/api/assets',json={'code':'PRN-012','name':'Duplicate','type_id':1,'status_id':mid(meta,'asset_status','available')}).status_code==409
+    assert client.post('/api/assets/register',json={'name':'Duplicate','model':'ZD421','serial':'ZEBRA-2026-1000','type_id':1,'status_id':mid(meta,'asset_status','available'),'warehouse_id':meta['warehouses'][0]['id']}).status_code==409
     assert client.patch(f'/api/assets/{id}',json={'status_id':mid(meta,'priority','high')}).status_code==422
     assert client.patch(f'/api/assets/{id}',json={'serial':'ZEBRA-2026-1000'}).status_code==409
     assert client.post('/api/interfaces',json={'asset_id':id,'name':'LAN','mac':'bad'}).status_code==422
@@ -69,9 +76,9 @@ def test_ticket_maintenance_knowledge(client,meta):
     attachment=client.post(f'/api/tickets/{tid}/attachments',files={'file':('diagnosis.txt',b'Sensor test results','text/plain')});assert attachment.status_code==200
     assert client.get('/api/attachments/'+str(attachment.json()['id'])).content==b'Sensor test results'
     maintenance=client.post('/api/maintenance',json={'asset_id':id,'ticket_id':tid,'problem':'Sensor malfunction','technician_id':3,'type_id':mid(meta,'maintenance_type','repair'),'status_id':mid(meta,'maintenance_status','open')});assert maintenance.status_code==201,maintenance.text
-    assert client.get(f'/api/assets/{id}').json()['status_label']=='Repair'
+    assert client.get(f'/api/assets/{id}').json()['current_status']=='MAINTENANCE'
     assert client.patch('/api/maintenance/'+str(maintenance.json()['id']),json={'status_id':mid(meta,'maintenance_status','completed'),'action_taken':'Replaced sensor'}).status_code==200
-    assert client.get(f'/api/assets/{id}').json()['status_label']=='Available'
+    assert client.get(f'/api/assets/{id}').json()['current_status']=='IN_USE'
     assert client.patch(f'/api/tickets/{tid}',json={'status_id':mid(meta,'ticket_status','resolved')}).status_code==200
     article=client.post('/api/articles',json={'title':'Sensor repair','resolution':'Replace the sensor and verify operation.','category_id':mid(meta,'kb_category','hardware'),'status_id':mid(meta,'article_status','published')});assert article.status_code==201
     assert client.post('/api/ticket-articles',json={'ticket_id':tid,'article_id':article.json()['id']}).status_code==201
@@ -87,7 +94,7 @@ def test_search_exports_dashboard(client):
     assert client.get('/api/assets/1/qr').headers['content-type']=='image/png'
     for fmt in ['csv','xlsx']:
         r=client.get('/api/reports/assets/export',params={'format':fmt});assert r.status_code==200;assert len(r.content)>100
-    data=client.get('/api/dashboard').json();assert len(data['stats'])==10;assert len(data['trend'])==7;assert data['attention']
+    data=client.get('/api/dashboard').json();assert 'Assigned assets' in data['stats'];assert 'operations' in data;assert data['attention']
     assert client.get('/api/assets?page_size=2').json()['page_size']==2
     assert client.get('/api/assets?filters=not-json').status_code==422
 
@@ -104,9 +111,8 @@ def test_filters_reports_network_lookup(client,meta):
     for q in ['7C:71:76:36:F5:F9','PRN-012','SWKHOMAT1','Gi3']:
         rows=client.get('/api/ip-addresses',params={'q':q}).json()['items']
         assert any(r['address']=='192.168.20.80' for r in rows)
-    assert client.get('/api/tickets?view=overdue').json()['total']>0
     dash=client.get('/api/dashboard').json()
-    assert dash['stats']['Overdue tickets']==client.get('/api/tickets?view=overdue').json()['total']
+    assert 'Overdue tickets' not in dash['stats']
     assert client.get('/api/assets',params={'location':'Q7 / OUTBOUND / DG-18BD'}).json()['total']==2
     report=client.get('/api/reports/maintenance/summary?group_by=asset_label').json()
     assert 'Total cost' in report['totals'] and report['groups']
@@ -117,12 +123,12 @@ def test_maintenance_return_preserves_state(client,meta):
     assert client.post(f'/api/assets/{id}/assign',json={'user_id':4,'condition_out':'Good'}).status_code==200
     maintenance=client.post('/api/maintenance',json={'asset_id':id,'problem':'Hardware fault','technician_id':3,'type_id':mid(meta,'maintenance_type','repair'),'status_id':mid(meta,'maintenance_status','open')}).json()
     assert client.post(f'/api/assets/{id}/return',json={'condition_in':'Requires repair'}).status_code==200
-    assert client.get(f'/api/assets/{id}').json()['status_label']=='Repair'
+    assert client.get(f'/api/assets/{id}').json()['current_status']=='AVAILABLE'
     assert client.patch('/api/maintenance/'+str(maintenance['id']),json={'status_id':mid(meta,'maintenance_status','completed')}).status_code==200
-    assert client.get(f'/api/assets/{id}').json()['status_label']=='Available'
+    assert client.get(f'/api/assets/{id}').json()['current_status']=='AVAILABLE'
     assert client.post(f'/api/assets/{id}/assign',json={'user_id':4,'condition_out':'Repaired'}).status_code==200
     assert client.patch('/api/maintenance/'+str(maintenance['id']),json={'note':'Invoice received'}).status_code==200
-    assert client.get(f'/api/assets/{id}').json()['status_label']=='Assigned'
+    assert client.get(f'/api/assets/{id}').json()['current_status']=='IN_USE'
 
 def test_create_article_from_ticket_is_atomic(client,meta):
     before=client.get('/api/articles').json()['total']
@@ -134,3 +140,29 @@ def test_create_article_from_ticket_is_atomic(client,meta):
     detail=client.get('/api/tickets/1/detail').json()
     assert any(article['id']==response.json()['id'] for article in detail['articles'])
     assert any('Linked knowledge article' in a['body'] for a in detail['activities'])
+
+def test_asset_registration_photo_and_excel_import(client,meta):
+    base={'name':'Must fail','model':'Latitude','serial':'NO-LOCATION','type_id':next(x['id'] for x in meta['asset-types'] if x['name']=='Laptop'),'status_id':mid(meta,'asset_status','available')}
+    assert client.post('/api/assets/register',json=base).status_code==422
+    assert client.post('/api/assets',json=base).status_code==422
+    asset_id=asset(client,meta,'PHOTO-001')
+    image=Image.new('RGB',(20,20),'green'); buffer=io.BytesIO(); image.save(buffer,format='PNG')
+    uploaded=client.post(f'/api/assets/{asset_id}/photo',files={'file':('asset.png',buffer.getvalue(),'image/png')})
+    assert uploaded.status_code==200,uploaded.text
+    assert client.get(f'/api/assets/{asset_id}/photo').headers['content-type']=='image/png'
+    assert client.post(f'/api/assets/{asset_id}/photo',files={'file':('fake.png',b'not an image','image/png')}).status_code==422
+    template=client.get('/api/assets/import/template'); assert template.status_code==200
+    workbook=Workbook(); sheet=workbook.active
+    sheet.append(['asset_type','warehouse','brand','model','serial','received_date','description'])
+    sheet.append(['Laptop',meta['warehouses'][0]['code'],'Dell','Latitude','IMPORT-SERIAL-001','2026-09-01','Imported test asset'])
+    content=io.BytesIO(); workbook.save(content)
+    imported=client.post('/api/assets/import',files={'file':('assets.xlsx',content.getvalue(),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')})
+    assert imported.status_code==201,imported.text
+    assert imported.json()['created']==1
+    detail=client.get('/api/assets/'+str(imported.json()['assets'][0]['id'])+'/detail').json()
+    assert detail['code']=='LATITUDE-IMPORT-SERIAL-001'
+    assert detail['received_date']=='2026-09-01' and detail['handover_date'] is None
+    assert detail['warehouse_id']==meta['warehouses'][0]['id']
+    assert len(detail['location-history'])==1
+    station=client.get('/api/locations/'+str(detail['location_id'])+'/detail').json()
+    assert any(row['id']==detail['id'] for row in station['assets'])

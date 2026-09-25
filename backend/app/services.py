@@ -1,6 +1,7 @@
 import ipaddress
 import re
-from datetime import datetime, timezone
+import hashlib
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from fastapi import HTTPException
 from sqlalchemy import select, inspect, update
@@ -19,7 +20,7 @@ def serialize(obj):
     for c in inspect(type(obj)).columns:
         if c.name in {'password_hash', 'storage_key'}: continue
         v = getattr(obj, c.name)
-        result[c.name] = (v.replace(tzinfo=timezone.utc) if v.tzinfo is None else v.astimezone(timezone.utc)).isoformat() if isinstance(v, datetime) else float(v) if isinstance(v, Decimal) else v
+        result[c.name] = (v.replace(tzinfo=timezone.utc) if v.tzinfo is None else v.astimezone(timezone.utc)).isoformat() if isinstance(v, datetime) else v.isoformat() if isinstance(v,date) else float(v) if isinstance(v, Decimal) else v
     return result
 
 def audit(db, user, action, resource, obj, old=None):
@@ -29,6 +30,15 @@ def master(db, group, code):
     item = db.scalar(select(m.MasterData).where(m.MasterData.group == group, m.MasterData.code == code, m.MasterData.archived == False))
     if not item: fail(f'Missing master data: {group}/{code}')
     return item.id
+
+def asset_code(model, serial):
+    raw=f'{model}-{serial}'.upper()
+    code=re.sub(r'[^A-Z0-9]+','-',raw).strip('-')
+    if not code: fail('Model and serial must contain letters or numbers')
+    if len(code)>40:
+        digest=hashlib.sha256(code.encode()).hexdigest()[:8].upper()
+        code=f'{code[:31].rstrip("-")}-{digest}'
+    return code
 
 def next_number(db, prefix):
     key = f'{prefix}-{datetime.now(timezone.utc).year}'
@@ -61,9 +71,14 @@ def validate(db, resource, data, obj=None):
         if val('role') not in {'ADMIN', 'IT_MANAGER', 'IT_SUPPORT', 'VIEWER'}: fail('Invalid role')
         if 'password' in data: data['password_hash'] = passwords.hash(data.pop('password'))
     if resource == 'assets':
-        if 'code' in data: data['code'] = data['code'].upper()
-        if 'serial' in data: data['serial'] = data['serial'].upper() if data['serial'] else None
-        if val('cost') is not None and val('cost') < 0: fail('Cost must be nonnegative')
+        identity_changed='model' in data or 'serial' in data
+        model=str(val('model') or '').strip(); serial=str(val('serial') or '').strip().upper()
+        if not model: fail('Model is required')
+        if not serial: fail('Serial is required')
+        if obj is None or identity_changed:
+            data['model']=model; data['serial']=serial
+            if 'code' not in data: data['code']=asset_code(model,serial)
+        if val('received_date') and val('handover_date') and val('handover_date') < val('received_date'): fail('Handover date cannot be before received date')
         if obj and 'type_id' in data and data['type_id'] != obj.type_id: fail('Asset type is immutable after creation; archive and register the correct asset')
         if obj and 'status_id' in data and get(db, m.MasterData, data['status_id']).code in {'retired', 'lost'}:
             if db.scalar(select(m.Assignment).where(m.Assignment.asset_id == obj.id, m.Assignment.returned_at == None)): fail('Return the asset before retiring it')
@@ -71,11 +86,11 @@ def validate(db, resource, data, obj=None):
     if resource == 'asset-types' and obj:
         if data.get('allow_assignment') is False and db.scalar(select(m.Assignment.id).join(m.Asset,m.Assignment.asset_id==m.Asset.id).where(m.Asset.type_id==obj.id,m.Assignment.returned_at==None).limit(1)): fail('Return assigned devices before disabling assignments')
     if resource == 'locations':
-        if val('kind') not in {'site','area','station'}: fail('Location kind must be site, area or station')
+        if val('kind') not in {'site','team','station'}: fail('Location kind must be site, team or station')
         parent = get(db, m.Location, val('parent_id')) if val('parent_id') else None
         if val('kind') == 'site' and parent: fail('A site cannot have a parent')
-        if val('kind') != 'site' and not parent: fail('Area/station requires a parent')
-        if parent and (parent.kind == 'station' or val('kind') == 'station' and parent.kind != 'area'): fail('Invalid location hierarchy')
+        if val('kind') != 'site' and not parent: fail('Team/station requires a parent')
+        if parent and (val('kind') == 'team' and parent.kind != 'site' or val('kind') == 'station' and parent.kind != 'team'): fail('Location hierarchy must be Site → Team → Station')
         visited = {obj.id} if obj else set()
         while parent:
             if parent.id in visited: fail('Location hierarchy cannot contain cycles')
@@ -127,6 +142,21 @@ def validate(db, resource, data, obj=None):
 
 def activity(db, ticket, user, body, kind='update', internal=False):
     db.add(m.TicketActivity(ticket_id=ticket.id, user_id=user.id, body=body, kind=kind, internal=internal))
+
+def operation(db, asset_id, operation_type, user, *, from_entity_type=None, from_entity_id=None,
+              to_entity_type=None, to_entity_id=None, condition_before=None,
+              condition_after=None, reason=None, note=None):
+    row = m.AssetOperation(
+        number=next_number(db, 'AOP'), asset_id=asset_id, operation_type=operation_type,
+        from_entity_type=from_entity_type, from_entity_id=from_entity_id,
+        to_entity_type=to_entity_type, to_entity_id=to_entity_id,
+        operation_date=m.now(), condition_before=condition_before,
+        condition_after=condition_after, performed_by=user.id, reason=reason, note=note,
+    )
+    db.add(row)
+    db.flush()
+    audit(db, user, operation_type.lower(), 'asset-operations', row)
+    return row
 
 def save(db, resource, data, user, obj=None):
     validate(db, resource, data, obj)
@@ -183,6 +213,11 @@ def move(db, id, payload, user):
     if current: current.ended_at = m.now(); db.flush()
     row = m.LocationHistory(asset_id=id,from_location_id=current.location_id if current else None,technician_id=user.id,**payload.model_dump())
     db.add(row); db.flush(); audit(db,user,'moved','location-history',row)
+    operation(db, id, 'TRANSFER' if current else 'RECEIVE', user,
+              from_entity_type='LOCATION' if current else 'SUPPLIER',
+              from_entity_id=current.location_id if current else None,
+              to_entity_type='LOCATION', to_entity_id=payload.location_id,
+              reason=payload.reason, note=payload.note)
     return row
 
 def assign(db,id,payload,user):
@@ -194,6 +229,11 @@ def assign(db,id,payload,user):
     row = m.Assignment(asset_id=id,assigned_by=user.id,**payload.model_dump())
     before = serialize(asset); asset.status_id = master(db,'asset_status','assigned')
     db.add(row); db.flush(); audit(db,user,'assigned','assignments',row); audit(db,user,'assigned','assets',asset,before)
+    current = db.scalar(select(m.LocationHistory).where(m.LocationHistory.asset_id == id,m.LocationHistory.ended_at == None))
+    operation(db, id, 'ASSIGN', user, from_entity_type='LOCATION' if current else None,
+              from_entity_id=current.location_id if current else None,
+              to_entity_type='USER', to_entity_id=payload.user_id,
+              condition_before=payload.condition_out, note=payload.note)
     return row
 
 def return_asset(db,id,payload,user):
@@ -205,4 +245,9 @@ def return_asset(db,id,payload,user):
     before = serialize(asset)
     if get(db,m.MasterData,asset.status_id).code == 'assigned': asset.status_id = master(db,'asset_status','available')
     db.flush(); audit(db,user,'returned','assignments',row,old); audit(db,user,'returned','assets',asset,before)
+    current = db.scalar(select(m.LocationHistory).where(m.LocationHistory.asset_id == id,m.LocationHistory.ended_at == None))
+    operation(db, id, 'RETURN', user, from_entity_type='USER', from_entity_id=row.user_id,
+              to_entity_type='LOCATION' if current else None,
+              to_entity_id=current.location_id if current else None,
+              condition_after=payload.condition_in, note=payload.note)
     return row

@@ -19,6 +19,8 @@ def setup():
 
 @pytest.fixture
 def client():
+    from app.security import attempts
+    attempts.clear()
     with TestClient(app,headers={'X-Requested-With':'Helpdesk'}) as c:
         assert c.post('/api/auth/login',json={'username':'admin','password':'TestPassword2026!'}).status_code==200
         yield c

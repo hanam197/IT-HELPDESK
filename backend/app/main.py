@@ -18,9 +18,14 @@ from openpyxl import Workbook, load_workbook
 from PIL import Image, UnidentifiedImageError
 from .database import get_db, settings
 from . import models as m
-from .schemas import RESOURCES, READ_ONLY, SCHEMAS, Login, Move, Assign, Return, Transfer, Comment
+from .schemas import RESOURCES, READ_ONLY, SCHEMAS, Login, Move, Assign, Return, Transfer, Comment, StockMovement, Retire, Reassign
 from .security import current_user, authorize, passwords, check_login_limit
-from .services import get, serialize, save, audit, activity, move, assign, return_asset, master, next_number
+from .services import get, serialize, save, audit, activity, move, assign, return_asset, master, next_number, retire_asset, reassign_asset
+
+from .warehouse import receive_new_asset, stock_movement
+from .lifecycle import asset_lifecycle
+from .asset_events import STATUS_LABELS
+from .localization import field_label
 
 app = FastAPI(title='IT Helpdesk & Asset Management', version='1.0.0')
 
@@ -29,7 +34,7 @@ async def security_headers(request, call_next):
     if request.method not in {'GET','HEAD','OPTIONS'} and request.url.path.startswith('/api/'):
         # Custom header prevents cross-origin HTML form CSRF; no cross-origin CORS is allowed.
         if request.headers.get('x-requested-with') != 'Helpdesk':
-            return JSONResponse({'detail':'Missing request verification header'},403)
+            return JSONResponse({'detail':'Thiếu thông tin xác minh yêu cầu'},403)
     response = await call_next(request)
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'DENY'
@@ -39,7 +44,7 @@ async def security_headers(request, call_next):
 
 @app.exception_handler(IntegrityError)
 async def integrity_handler(request, exc):
-    return JSONResponse({'detail':'Duplicate value or invalid relationship. Check asset code, serial, IP, MAC and active records.'},409)
+    return JSONResponse({'detail':'Dữ liệu bị trùng hoặc liên kết không hợp lệ. Kiểm tra mã tài sản, số sê-ri, IP, MAC và bản ghi đang sử dụng.'},409)
 
 @app.get('/api/health')
 def health(db=Depends(get_db)):
@@ -52,7 +57,7 @@ def login(payload: Login, request: Request, response: Response, db=Depends(get_d
     dummy = '$argon2id$v=19$m=65536,t=3,p=4$UVNhbHRGb3JEZW1vMTIzNA$AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8'
     try: valid = passwords.verify(payload.password, user.password_hash if user else dummy)
     except Exception: valid = False
-    if not user or not valid: raise HTTPException(401,'Incorrect username or password')
+    if not user or not valid: raise HTTPException(401,'Tên đăng nhập hoặc mật khẩu không đúng')
     token = jwt.encode({'sub':str(user.id),'exp':datetime.now(timezone.utc)+timedelta(hours=8)},settings.secret_key,algorithm='HS256')
     response.set_cookie('helpdesk_session',token,httponly=True,secure=settings.secure_cookie,samesite='strict',max_age=28800)
     return serialize(user)
@@ -92,14 +97,21 @@ def enriched(db,obj):
                 label=getattr(linked,'code',None) or getattr(linked,'name',None) or getattr(linked,'number',None) or getattr(linked,'cidr',None) or str(linked.id)
                 if isinstance(linked,m.MasterData): label=linked.name
                 data[c.name.removesuffix('_id')+'_label']=label
+    if isinstance(obj,m.Location):
+        data['photo_url']=f'/api/locations/{obj.id}/photo' if obj.photo else None
+    if isinstance(obj,m.InventoryTransaction) and obj.recipient_location_id:
+        data['recipient_location_label']=location_path(db,obj.recipient_location_id)
     if isinstance(obj,m.Asset):
         loc=db.scalar(select(m.LocationHistory).where(m.LocationHistory.asset_id==obj.id,m.LocationHistory.ended_at==None))
         ass=db.scalar(select(m.Assignment).where(m.Assignment.asset_id==obj.id,m.Assignment.returned_at==None))
-        data['location_label']=location_path(db,loc.location_id) if loc else 'Unlocated'
-        data['location_id']=loc.location_id if loc else None
-        data['assigned_to']=db.get(m.User,ass.user_id).name if ass else None
+        data['location_label']=location_path(db,obj.current_location_id) if obj.current_location_id else 'Chưa có vị trí'
+        data['status_label']=STATUS_LABELS.get(obj.current_status,obj.current_status)
+        data['current_location']=obj.current_location_id
+        data['current_assignee']=obj.current_assignee_id
+        data['location_id']=obj.current_location_id
+        data['assigned_to']=db.get(m.User,obj.current_assignee_id).name if obj.current_assignee_id else None
         data['assignment_id']=ass.id if ass else None
-        data['assignment_user_id']=ass.user_id if ass else None
+        data['assignment_user_id']=obj.current_assignee_id
         data['current_assignment_since']=ass.created_at.isoformat() if ass else None
         data['location_since']=loc.created_at.isoformat() if loc else None
         data['since']=ass.created_at.isoformat() if ass else (loc.created_at.isoformat() if loc else None)
@@ -113,8 +125,10 @@ def enriched(db,obj):
                 linked=db.get(m.User, entity_id); label_value=linked.name if linked else None
             elif entity_type == 'LOCATION' and entity_id:
                 label_value=location_path(db, entity_id)
+            elif entity_type == 'WAREHOUSE' and entity_id:
+                linked=db.get(m.Warehouse,entity_id); label_value=linked.name if linked else None
             elif entity_type == 'SUPPLIER':
-                label_value='Supplier'
+                label_value='Nhà cung cấp'
             data[f'{prefix}_label']=label_value
     if isinstance(obj,m.IPAddress):
         interface=db.get(m.NetworkInterface,obj.interface_id) if obj.interface_id else None
@@ -134,16 +148,19 @@ def enriched(db,obj):
     return data
 
 def query_rows(db,resource,user,q='',filters='{}',view='',location=''):
-    if resource not in RESOURCES: raise HTTPException(404,'Unknown resource')
-    if resource=='users' and user.role!='ADMIN': raise HTTPException(403,'Admin only')
+    if resource not in RESOURCES: raise HTTPException(404,'Không tìm thấy loại dữ liệu')
+    if resource=='users' and user.role!='ADMIN': raise HTTPException(403,'Chỉ quản trị viên được thực hiện')
     model=RESOURCES[resource]; stmt=select(model)
     if hasattr(model,'archived'): stmt=stmt.where(model.archived==False)
     if resource=='ticket-activities' and user.role=='VIEWER': stmt=stmt.where(m.TicketActivity.internal==False)
     try: values=json.loads(filters)
-    except ValueError: raise HTTPException(422,'Invalid filters')
-    if not isinstance(values,dict): raise HTTPException(422,'Filters must be an object')
+    except ValueError: raise HTTPException(422,'Bộ lọc không hợp lệ')
+    if not isinstance(values,dict): raise HTTPException(422,'Định dạng bộ lọc không hợp lệ')
     for key,value in values.items():
-        if key not in inspect(model).columns or key=='password_hash': raise HTTPException(422,f'Invalid filter: {key}')
+        if resource=='assets' and key=='assigned_user':
+            if not isinstance(value,int) or isinstance(value,bool): raise HTTPException(422,'Người phụ trách không hợp lệ')
+            continue
+        if key not in inspect(model).columns or key=='password_hash': raise HTTPException(422,f'Bộ lọc không hợp lệ: {key}')
         col=getattr(model,key); stmt=stmt.where(col==value)
     if resource=='tickets':
         if view in {'open','overdue'}:
@@ -152,9 +169,12 @@ def query_rows(db,resource,user,q='',filters='{}',view='',location=''):
         if view=='overdue': stmt=stmt.where(m.Ticket.due_at<m.now())
         if view=='resolved-today': stmt=stmt.where(m.Ticket.resolved_at>=datetime.now(timezone.utc).replace(hour=0,minute=0,second=0,microsecond=0))
     if resource=='assignments' and view=='returned': stmt=stmt.where(m.Assignment.returned_at!=None)
+    if resource=='assets' and view=='in-stock': stmt=stmt.where(m.Asset.warehouse_id!=None)
+    if resource=='assets' and (view=='assigned' or values.get('assigned_user')):
+        stmt=stmt.where(m.Asset.current_assignee_id==int(values['assigned_user']) if values.get('assigned_user') else m.Asset.current_assignee_id!=None)
     if resource=='assets' and location:
         ids=[r.id for r in db.scalars(select(m.Location)) if location_path(db,r.id)==location]
-        stmt=stmt.where(m.Asset.id.in_(select(m.LocationHistory.asset_id).where(m.LocationHistory.location_id.in_(ids),m.LocationHistory.ended_at==None)))
+        stmt=stmt.where(m.Asset.current_location_id.in_(ids))
     if q:
         cols=[c for c in inspect(model).columns if (isinstance(c.type,String) or c.name=='created_at') and c.name!='password_hash']
         conditions=[cast(c,String).ilike('%'+q+'%') for c in cols]
@@ -165,6 +185,13 @@ def query_rows(db,resource,user,q='',filters='{}',view='',location=''):
             connected=select(m.SwitchPort.connected_asset_id).where(or_(m.SwitchPort.name.ilike(pattern),m.SwitchPort.switch_id.in_(matching_switches)))
             interfaces=select(m.NetworkInterface.id).where(or_(m.NetworkInterface.mac.ilike(pattern),m.NetworkInterface.hostname.ilike(pattern),m.NetworkInterface.asset_id.in_(matching_assets),m.NetworkInterface.asset_id.in_(connected)))
             conditions.append(m.IPAddress.interface_id.in_(interfaces))
+        if resource in {'asset-operations','inventory-transactions','location-history','assignments'}:
+            for column in inspect(model).columns:
+                for fk in column.foreign_keys:
+                    target=next((r for r in RESOURCES.values() if r.__tablename__==fk.column.table.name),None)
+                    if target is None: continue
+                    labels=[getattr(target,key) for key in ['code','name','username','serial'] if key in inspect(target).columns]
+                    if labels: conditions.append(column.in_(select(target.id).where(or_(*[c.ilike('%'+q+'%') for c in labels]))))
         stmt=stmt.where(or_(*conditions))
     return stmt
 
@@ -174,14 +201,14 @@ def dashboard(user=Depends(current_user),db=Depends(get_db)):
     maintenance=[enriched(db,r) for r in db.scalars(select(m.Maintenance).where(m.Maintenance.archived==False))]
     codes={r.id:r.code for r in db.scalars(select(m.MasterData))}
     active=[x for x in maintenance if x['end_at'] is None]
-    stats={'Total assets':len(assets),'Available assets':sum(codes[a['status_id']]=='available' for a in assets),'Active assets':sum(codes[a['status_id']] in {'active','in_use'} for a in assets),'Assigned assets':sum(bool(a['assignment_id']) for a in assets),'Assets in warehouse':sum(codes[a['status_id']]=='available' and 'warehouse' in (a.get('location_label') or '').lower() for a in assets),'Assets under repair':sum(codes[a['status_id']] in {'repair','maintenance'} for a in assets),'Broken assets':sum(codes[a['status_id']]=='broken' for a in assets),'Low stock items':sum(float(r.quantity)<float(r.minimum_stock) for r in db.scalars(select(m.InventoryItem).where(m.InventoryItem.archived==False))),'Active maintenance':len(active)}
+    stats={'Total assets':len(assets),'Available assets':sum(codes[a['status_id']]=='available' for a in assets),'Active assets':sum(codes[a['status_id']] in {'active','in_use'} for a in assets),'Assigned assets':sum(bool(a['assignment_id']) for a in assets),'Assets in warehouse':sum(bool(a['warehouse_id']) for a in assets),'Assets under repair':sum(codes[a['status_id']] in {'repair','maintenance'} for a in assets),'Retired assets':sum(a['current_status']=='RETIRED' for a in assets),'Low stock items':sum(float(r.quantity)<float(r.minimum_stock) for r in db.scalars(select(m.InventoryItem).where(m.InventoryItem.archived==False))),'Phiếu bảo trì đang mở':len(active)}
     distribution=lambda rows,key:dict(Counter(r.get(key) or 'Unassigned' for r in rows))
-    attention=[{'title':a['code']+' · '+a['name'],'subtitle':'Asset under repair','resource':'assets','id':a['id']} for a in assets if codes[a['status_id']] in {'repair','maintenance','broken'}]
-    attention += [{'title':x['number'],'subtitle':'Active maintenance','resource':'maintenance','id':x['id']} for x in active]
+    attention=[{'title':a['code']+' · '+a['name'],'subtitle':'Tài sản đang bảo trì','resource':'assets','id':a['id']} for a in assets if codes[a['status_id']] in {'repair','maintenance','broken'}]
+    attention += [{'title':x['number'],'subtitle':'Phiếu bảo trì đang mở','resource':'maintenance','id':x['id']} for x in active]
     for ip in db.scalars(select(m.IPAddress).where(m.IPAddress.archived==False)):
-        if codes[ip.status_id]=='conflict': attention.append({'title':ip.address,'subtitle':'IP conflict','resource':'ip-addresses','id':ip.id})
-    operations=[enriched(db,r) for r in db.scalars(select(m.AssetOperation).order_by(m.AssetOperation.operation_date.desc()).limit(12))]
-    return {'stats':stats,'asset_type':distribution(assets,'type_label'),'asset_status':distribution(assets,'status_label'),'asset_location':distribution(assets,'location_label'),'operations':operations,'recent_returns':[r for r in operations if r['operation_type']=='RETURN'][:5],'recent_assignments':[r for r in operations if r['operation_type']=='ASSIGN'][:5],'attention':attention,'activities':[enriched(db,a) for a in db.scalars(select(m.AuditLog).order_by(m.AuditLog.id.desc()).limit(8))]}
+        if codes[ip.status_id]=='conflict': attention.append({'title':ip.address,'subtitle':'Xung đột địa chỉ IP','resource':'ip-addresses','id':ip.id})
+    operations=[enriched(db,r) for r in db.scalars(select(m.AssetOperation).where(m.AssetOperation.operation_type.in_(['RECEIVED','ISSUED','RETURNED','MOVED','REASSIGNED','MAINTENANCE','RETIRED','UPDATED'])).order_by(m.AssetOperation.operation_date.desc(),m.AssetOperation.id.desc()).limit(12))]
+    return {'stats':stats,'asset_type':distribution(assets,'type_label'),'asset_status':distribution(assets,'status_label'),'asset_location':distribution(assets,'location_label'),'operations':operations,'recent_returns':[r for r in operations if r['operation_type']=='RETURNED'][:5],'recent_assignments':[r for r in operations if r['operation_type']=='ISSUED'][:5],'attention':attention,'activities':[enriched(db,a) for a in db.scalars(select(m.AuditLog).order_by(m.AuditLog.id.desc()).limit(8))]}
 
 @app.get('/api/search')
 def search(q:str=Query(min_length=2,max_length=150),user=Depends(current_user),db=Depends(get_db)):
@@ -211,14 +238,37 @@ def asset_detail(id:int,user=Depends(current_user),db=Depends(get_db)):
     data['ip-addresses']=[enriched(db,r) for r in db.scalars(select(m.IPAddress).where(m.IPAddress.interface_id.in_(ids)))]
     data['connected_ports']=[enriched(db,r) for r in db.scalars(select(m.SwitchPort).where(m.SwitchPort.connected_asset_id==id))]
     data['audit-logs']=[enriched(db,r) for r in db.scalars(select(m.AuditLog).where(or_((m.AuditLog.object_type=='assets')&(m.AuditLog.object_id==id),m.AuditLog.new_value['asset_id'].as_integer()==id)).order_by(m.AuditLog.id.desc()))]
+    asset_lifecycle(db,asset,data,enriched)
     return data
 
 @app.get('/api/locations/{id}/detail')
 def location_detail(id:int,user=Depends(current_user),db=Depends(get_db)):
     location=get(db,m.Location,id); data=enriched(db,location); data['path']=location_path(db,id)
-    current_asset_ids=select(m.LocationHistory.asset_id).where(m.LocationHistory.location_id==id,m.LocationHistory.ended_at==None)
-    data['assets']=[enriched(db,a) for a in db.scalars(select(m.Asset).where(m.Asset.id.in_(current_asset_ids),m.Asset.archived==False).order_by(m.Asset.code))]
+    locations=list(db.scalars(select(m.Location).where(m.Location.archived==False)))
+    scope={id}
+    while True:
+        expanded=scope|{r.id for r in locations if r.parent_id in scope}
+        if expanded==scope: break
+        scope=expanded
+    assets=list(db.scalars(select(m.Asset).where(m.Asset.current_location_id.in_(scope),m.Asset.archived==False).order_by(m.Asset.code)))
+    asset_ids=[a.id for a in assets]
+    data['assets']=[enriched(db,a) for a in assets]
+    interfaces=select(m.NetworkInterface.id).where(m.NetworkInterface.asset_id.in_(asset_ids),m.NetworkInterface.archived==False)
+    data['network']=[enriched(db,r) for r in db.scalars(select(m.IPAddress).where(m.IPAddress.interface_id.in_(interfaces),m.IPAddress.archived==False))]
+    data['people']=[enriched(db,r) for r in db.scalars(select(m.Assignment).where(m.Assignment.asset_id.in_(asset_ids),m.Assignment.returned_at==None))]
+    data['history']=[enriched(db,r) for r in db.scalars(select(m.LocationHistory).where(or_(m.LocationHistory.location_id.in_(scope),m.LocationHistory.from_location_id.in_(scope))).order_by(m.LocationHistory.created_at.desc()))]
+    data['stock_movements']=[enriched(db,r) for r in db.scalars(select(m.InventoryTransaction).where(m.InventoryTransaction.recipient_location_id.in_(scope)).order_by(m.InventoryTransaction.transaction_date.desc()))]
+    parent=db.get(m.Location,location.parent_id) if location.parent_id else None
+    site=db.get(m.Location,parent.parent_id) if parent and parent.parent_id else parent
+    data['team_name']=parent.name if location.kind=='station' and parent else None
+    data['site_name']=location.name if location.kind=='site' else site.name if site else None
+    last=db.scalar(select(m.AuditLog).where(m.AuditLog.object_type=='locations',m.AuditLog.object_id==id).order_by(m.AuditLog.id.desc()).limit(1))
+    data['updated_by']=db.get(m.User,last.user_id).name if last and last.user_id else None
     return data
+
+@app.post('/api/assets/{id}/retire')
+def retire(id:int,payload:Retire,user=Depends(current_user),db=Depends(get_db)):
+    authorize(user,'operations'); row=retire_asset(db,id,payload,user); db.commit(); return enriched(db,row)
 
 @app.post('/api/assets/{id}/move')
 def move_asset(id:int,payload:Move,user=Depends(current_user),db=Depends(get_db)):
@@ -229,10 +279,15 @@ def assign_asset(id:int,payload:Assign,user=Depends(current_user),db=Depends(get
 @app.post('/api/assets/{id}/return')
 def return_device(id:int,payload:Return,user=Depends(current_user),db=Depends(get_db)):
     authorize(user,'operations'); row=return_asset(db,id,payload,user); db.commit(); return serialize(row)
+@app.post('/api/assets/{id}/reassign')
+def reassign_device(id:int,payload:Reassign,user=Depends(current_user),db=Depends(get_db)):
+    authorize(user,'operations'); row=reassign_asset(db,id,payload,user); db.commit(); return serialize(row)
+
 @app.post('/api/assets/{id}/transfer')
 def transfer_device(id:int,payload:Transfer,user=Depends(current_user),db=Depends(get_db)):
-    authorize(user,'operations'); return_asset(db,id,Return(condition_in=payload.condition_in,note=payload.note),user)
-    row=assign(db,id,Assign(**payload.model_dump(exclude={'condition_in'})),user); db.commit(); return serialize(row)
+    authorize(user,'operations')
+    row=reassign_asset(db,id,Reassign(user_id=payload.user_id,reason=payload.note or 'Chuyển người chịu trách nhiệm'),user)
+    db.commit(); return serialize(row)
 
 @app.get('/api/assets/{id}/qr')
 def asset_qr(id:int,user=Depends(current_user),db=Depends(get_db)):
@@ -243,75 +298,68 @@ def asset_qr(id:int,user=Depends(current_user),db=Depends(get_db)):
 def register_asset(payload:dict,user=Depends(current_user),db=Depends(get_db)):
     """Create an asset and its first immutable location record atomically."""
     authorize(user,'assets')
-    location_id=payload.pop('location_id',None)
-    if not location_id: raise HTTPException(422,'Location is required when creating an asset')
-    asset=save(db,'assets',parse_payload('assets',payload),user)
-    move(db,asset.id,Move(location_id=location_id,reason='Initial asset registration'),user)
+    warehouse_id=payload.pop('warehouse_id',None)
+    if not isinstance(warehouse_id,int) or isinstance(warehouse_id,bool): raise HTTPException(422,'Tài sản mới phải chọn kho tiếp nhận')
+    payload.setdefault('name',payload.get('model'))
+    payload['status_id']=master(db,'asset_status','available')
+    asset=receive_new_asset(db,warehouse_id,parse_payload('assets',payload),user)
     db.commit(); return enriched(db,asset)
 
 @app.post('/api/inventory/transactions',status_code=201)
-def inventory_transaction(payload:dict,user=Depends(current_user),db=Depends(get_db)):
+def inventory_transaction(payload:StockMovement,user=Depends(current_user),db=Depends(get_db)):
     authorize(user,'warehouses')
-    transaction_type=str(payload.get('transaction_type') or '').upper()
-    if transaction_type not in {'RECEIVE','ISSUE'}: raise HTTPException(422,'Transaction type must be RECEIVE or ISSUE')
-    warehouse_id=payload.get('warehouse_id'); item_id=payload.get('item_id'); quantity=payload.get('quantity')
-    if not warehouse_id or not item_id or quantity is None: raise HTTPException(422,'Warehouse, item and quantity are required')
-    try: quantity=float(quantity)
-    except (TypeError,ValueError): raise HTTPException(422,'Quantity must be numeric')
-    if quantity <= 0: raise HTTPException(422,'Quantity must be greater than zero')
-    warehouse=get(db,m.Warehouse,warehouse_id)
-    item=db.scalar(select(m.InventoryItem).where(m.InventoryItem.id==item_id,m.InventoryItem.archived==False).with_for_update())
-    if not item: raise HTTPException(404,'Inventory item not found')
-    if item.warehouse_id != warehouse.id: raise HTTPException(422,'Item does not belong to this warehouse')
-    current=float(item.quantity or 0)
-    if transaction_type=='ISSUE' and current < quantity: raise HTTPException(422,'Insufficient stock')
-    item.quantity=current + quantity if transaction_type=='RECEIVE' else current - quantity
-    row=m.InventoryTransaction(number=next_number(db,'STK'),transaction_type=transaction_type,warehouse_id=warehouse.id,item_id=item.id,quantity=quantity,source_vendor=payload.get('source_vendor'),condition=payload.get('condition'),performed_by=user.id,note=payload.get('note'))
-    db.add(row); db.flush(); audit(db,user,transaction_type.lower(),'inventory-transactions',row); db.commit()
-    return enriched(db,row)
+    new_item=parse_payload('inventory-items',{**payload.new_item,'warehouse_id':payload.warehouse_id}) if payload.new_item is not None else None
+    row=stock_movement(db,payload,user,new_item)
+    db.commit(); return enriched(db,row)
 
+@app.post('/api/locations/{id}/photo')
 @app.post('/api/assets/{id}/photo')
-async def upload_asset_photo(id:int,file:UploadFile=File(...),user=Depends(current_user),db=Depends(get_db)):
-    authorize(user,'assets'); asset=get(db,m.Asset,id)
+async def upload_asset_photo(id:int,request:Request,file:UploadFile=File(...),user=Depends(current_user),db=Depends(get_db)):
+    resource=request.url.path.split('/')[2]
+    authorize(user,resource); asset=get(db,RESOURCES[resource],id)
     content=await file.read(5*1024*1024+1)
-    if len(content)>5*1024*1024: raise HTTPException(413,'Maximum photo size is 5 MB')
+    if len(content)>5*1024*1024: raise HTTPException(413,'Ảnh không được vượt quá 5 MB')
     try:
         image=Image.open(io.BytesIO(content)); image.verify(); image_format=image.format
-    except (UnidentifiedImageError,OSError): raise HTTPException(422,'Select a valid JPG, PNG or WebP image')
+    except (UnidentifiedImageError,OSError): raise HTTPException(422,'Vui lòng chọn ảnh JPG, PNG hoặc WebP hợp lệ')
     extensions={'JPEG':'jpg','PNG':'png','WEBP':'webp'}
-    if image_format not in extensions: raise HTTPException(422,'Only JPG, PNG and WebP photos are supported')
-    directory=Path(settings.upload_dir)/'asset-photos'; directory.mkdir(parents=True,exist_ok=True)
+    if image_format not in extensions: raise HTTPException(422,'Chỉ hỗ trợ ảnh JPG, PNG và WebP')
+    directory=Path(settings.upload_dir)/('asset-photos' if resource=='assets' else 'location-photos'); directory.mkdir(parents=True,exist_ok=True)
     key=f'{id}-{secrets.token_hex(16)}.{extensions[image_format]}'; path=directory/key; path.write_bytes(content)
     old=serialize(asset); previous=asset.photo; asset.photo=key
-    audit(db,user,'photo uploaded','assets',asset,old); db.commit()
+    audit(db,user,'photo uploaded',resource,asset,old); db.commit()
     if previous: (directory/Path(previous).name).unlink(missing_ok=True)
     return enriched(db,asset)
 
+@app.get('/api/locations/{id}/photo')
 @app.get('/api/assets/{id}/photo')
-def asset_photo(id:int,user=Depends(current_user),db=Depends(get_db)):
-    asset=get(db,m.Asset,id)
-    if not asset.photo: raise HTTPException(404,'Asset has no photo')
-    path=Path(settings.upload_dir)/'asset-photos'/Path(asset.photo).name
-    if not path.is_file(): raise HTTPException(404,'Photo file not found')
+def asset_photo(id:int,request:Request,user=Depends(current_user),db=Depends(get_db)):
+    resource=request.url.path.split('/')[2]
+    asset=get(db,RESOURCES[resource],id)
+    if not asset.photo: raise HTTPException(404,'Tài sản chưa có ảnh')
+    path=Path(settings.upload_dir)/('asset-photos' if resource=='assets' else 'location-photos')/Path(asset.photo).name
+    if not path.is_file(): raise HTTPException(404,'Không tìm thấy tệp ảnh')
     return FileResponse(path)
 
 @app.get('/api/assets/import/template')
 def asset_import_template(user=Depends(current_user)):
-    book=Workbook(); sheet=book.active; sheet.title='Assets'
-    sheet.append(['asset_name','asset_type','status','location','brand','model','serial','received_date','handover_date','description'])
-    sheet.append(['Example laptop','Laptop','Available','Q7 / OUTBOUND / DG-01BD','Dell','Latitude 5440','SN-EXAMPLE-001','','',''])
+    book=Workbook(); sheet=book.active; sheet.title='Tài sản'
+    sheet.append([field_label(k) for k in ['asset_type','warehouse','brand','model','serial','received_date','description']])
+    sheet.append(['Laptop','WH-Q7','Dell','Latitude 5440','SN-EXAMPLE-001','',''])
     sheet.freeze_panes='A2'; buffer=io.BytesIO(); book.save(buffer); buffer.seek(0)
     return StreamingResponse(buffer,media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',headers={'Content-Disposition':'attachment; filename="asset-import-template.xlsx"'})
 
 @app.post('/api/assets/import',status_code=201)
 async def import_assets(file:UploadFile=File(...),user=Depends(current_user),db=Depends(get_db)):
     authorize(user,'assets'); content=await file.read(5*1024*1024+1)
-    if len(content)>5*1024*1024: raise HTTPException(413,'Maximum import size is 5 MB')
+    if len(content)>5*1024*1024: raise HTTPException(413,'Tệp nhập không được vượt quá 5 MB')
     try: book=load_workbook(io.BytesIO(content),read_only=True,data_only=True)
-    except Exception: raise HTTPException(422,'Select a valid XLSX workbook')
+    except Exception: raise HTTPException(422,'Vui lòng chọn tệp Excel XLSX hợp lệ')
     rows=book.active.iter_rows(values_only=True); headers=[str(v or '').strip().lower() for v in next(rows,())]
-    required={'asset_name','asset_type','status','location','model','serial'}
-    if not required.issubset(headers): raise HTTPException(422,f"Missing columns: {', '.join(sorted(required-set(headers)))}")
+    aliases={field_label(k).lower():k for k in ['asset_type','warehouse','brand','model','serial','received_date','description']}
+    headers=[aliases.get(k,k) for k in headers]
+    required={'asset_type','warehouse','model','serial'}
+    if not required.issubset(headers): raise HTTPException(422,f"Thiếu cột: {', '.join(sorted(required-set(headers)))}")
     created=[]
     try:
         for row_number,values in enumerate(rows,start=2):
@@ -319,29 +367,27 @@ async def import_assets(file:UploadFile=File(...),user=Depends(current_user),db=
             if not any(v not in (None,'') for v in values): continue
             def required_text(key):
                 value=str(record.get(key) or '').strip()
-                if not value: raise HTTPException(422,f'Row {row_number}: {key} is required')
+                if not value: raise HTTPException(422,f'Dòng {row_number}: cần nhập {key}')
                 return value
-            type_name=required_text('asset_type'); status_value=required_text('status'); location_value=required_text('location')
+            type_name=required_text('asset_type'); warehouse_code=required_text('warehouse')
             asset_type=db.scalar(select(m.AssetType).where(func.lower(m.AssetType.name)==type_name.lower(),m.AssetType.archived==False))
-            status=db.scalar(select(m.MasterData).where(m.MasterData.group=='asset_status',m.MasterData.archived==False,or_(func.lower(m.MasterData.name)==status_value.lower(),func.lower(m.MasterData.code)==status_value.lower().replace(' ','_'))))
-            locations=[loc for loc in db.scalars(select(m.Location).where(m.Location.archived==False)) if location_path(db,loc.id).lower()==location_value.lower()]
-            if not asset_type: raise HTTPException(422,f'Row {row_number}: unknown asset type "{type_name}"')
-            if not status: raise HTTPException(422,f'Row {row_number}: unknown asset status "{status_value}"')
-            if len(locations)!=1: raise HTTPException(422,f'Row {row_number}: location must match one full path, for example Q7 / OFFICE')
-            data={'name':required_text('asset_name'),'type_id':asset_type.id,'status_id':status.id,'model':required_text('model'),'serial':required_text('serial')}
+            warehouse=db.scalar(select(m.Warehouse).where(func.lower(m.Warehouse.code)==warehouse_code.lower(),m.Warehouse.archived==False))
+            if not asset_type: raise HTTPException(422,f'Dòng {row_number}: không tìm thấy loại tài sản "{type_name}"')
+            if not warehouse: raise HTTPException(422,f'Dòng {row_number}: không tìm thấy mã kho "{warehouse_code}"')
+            data={'name':required_text('model'),'type_id':asset_type.id,'status_id':master(db,'asset_status','available'),'model':required_text('model'),'serial':required_text('serial')}
             for key in ['brand','description']:
                 if record.get(key) not in (None,''): data[key]=str(record[key]).strip()
-            for key in ['received_date','handover_date']:
+            for key in ['received_date']:
                 if record.get(key):
                     value=record[key]
                     data[key]=value.date() if isinstance(value,datetime) else value if isinstance(value,date) else date.fromisoformat(str(value))
-            asset=save(db,'assets',data,user); move(db,asset.id,Move(location_id=locations[0].id,reason='Imported asset registration'),user); created.append(asset)
-        if not created: raise HTTPException(422,'The workbook has no asset rows')
+            asset=receive_new_asset(db,warehouse.id,parse_payload('assets',data),user); created.append(asset)
+        if not created: raise HTTPException(422,'Tệp Excel không có dòng tài sản')
         db.commit()
     except HTTPException:
         db.rollback(); raise
     except (ValueError,TypeError) as exc:
-        db.rollback(); raise HTTPException(422,f'Invalid import value: {exc}')
+        db.rollback(); raise HTTPException(422,f'Dữ liệu nhập không hợp lệ: {exc}')
     return {'created':len(created),'assets':[enriched(db,a) for a in created]}
 
 @app.get('/api/tickets/{id}/detail')
@@ -373,7 +419,7 @@ def comment(id:int,payload:Comment,user=Depends(current_user),db=Depends(get_db)
 async def attachment(id:int,file:UploadFile=File(...),user=Depends(current_user),db=Depends(get_db)):
     authorize(user,'tickets'); ticket=get(db,m.Ticket,id)
     content=await file.read(10*1024*1024+1)
-    if len(content)>10*1024*1024: raise HTTPException(413,'Maximum file size is 10 MB')
+    if len(content)>10*1024*1024: raise HTTPException(413,'Tệp không được vượt quá 10 MB')
     key=secrets.token_hex(24); directory=Path(settings.upload_dir); directory.mkdir(parents=True,exist_ok=True)
     path=directory/key; path.write_bytes(content)
     try:
@@ -417,24 +463,24 @@ def export(resource:str,format:str='csv',q:str='',filters:str='{}',view:str='',l
         value=json.dumps(v,ensure_ascii=False) if isinstance(v,(dict,list)) else '' if v is None else str(v)
         return "'"+value if value.startswith(('=','+','-','@','\t','\r')) else value
     if format=='xlsx':
-        book=Workbook(); sheet=book.active; sheet.append(columns)
+        book=Workbook(); sheet=book.active; sheet.append([field_label(c) for c in columns])
         for row in rows: sheet.append([safe(row.get(c)) for c in columns])
         buffer=io.BytesIO(); book.save(buffer); buffer.seek(0); mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     elif format=='csv':
-        out=io.StringIO(); writer=csv.writer(out); writer.writerow(columns)
+        out=io.StringIO(); writer=csv.writer(out); writer.writerow([field_label(c) for c in columns])
         for row in rows: writer.writerow([safe(row.get(c)) for c in columns])
         buffer=io.BytesIO(('\ufeff'+out.getvalue()).encode()); mime='text/csv; charset=utf-8'
-    else: raise HTTPException(422,'Use csv or xlsx')
+    else: raise HTTPException(422,'Vui lòng chọn định dạng CSV hoặc XLSX')
     return StreamingResponse(buffer,media_type=mime,headers={'Content-Disposition':f'attachment; filename="{resource}.{format}"'})
 
 @app.get('/api/{resource}')
 def list_resource(resource:str,q:str='',filters:str='{}',page:int=Query(1,ge=1),page_size:int=Query(20,ge=1,le=100),sort:str='id',direction:str='desc',view:str='',location:str='',user=Depends(current_user),db=Depends(get_db)):
     stmt=query_rows(db,resource,user,q,filters,view,location); model=RESOURCES[resource]
-    if sort=='password_hash': raise HTTPException(422,'Invalid sort')
+    if sort=='password_hash': raise HTTPException(422,'Cách sắp xếp không hợp lệ')
     if sort not in inspect(model).columns:
         rows=[enriched(db,r) for r in db.scalars(stmt)]
         display=sort.removesuffix('_id')+'_label' if sort.endswith('_id') else sort
-        if rows and display not in rows[0]: raise HTTPException(422,'Invalid sort')
+        if rows and display not in rows[0]: raise HTTPException(422,'Cách sắp xếp không hợp lệ')
         rows.sort(key=lambda r:str(r.get(display) or ''),reverse=direction=='desc')
         return {'items':rows[(page-1)*page_size:page*page_size],'total':len(rows),'page':page,'page_size':page_size}
     total=db.scalar(select(func.count()).select_from(stmt.subquery()))
@@ -450,35 +496,35 @@ def detail(resource:str,id:int,user=Depends(current_user),db=Depends(get_db)):
     return enriched(db,row)
 
 def parse_payload(resource,payload,partial=False):
-    if resource not in SCHEMAS: raise HTTPException(405,'Resource is read-only')
+    if resource not in SCHEMAS: raise HTTPException(405,'Dữ liệu này chỉ được phép xem')
     try: return SCHEMAS[resource][int(partial)].model_validate(payload).model_dump(exclude_unset=True)
     except ValidationError as e: raise HTTPException(422,jsonable_encoder(e.errors(),custom_encoder={ValueError:str}))
 
 @app.post('/api/{resource}',status_code=201)
 def create(resource:str,payload:dict,user=Depends(current_user),db=Depends(get_db)):
     authorize(user,resource)
-    if resource=='assets': raise HTTPException(422,'Use asset registration and provide an initial location')
+    if resource=='assets': raise HTTPException(422,'Vui lòng nhập tài sản mới qua mục Kho và chọn kho tiếp nhận')
     data=parse_payload(resource,payload); obj=save(db,resource,data,user); db.commit(); return enriched(db,obj)
 
 @app.patch('/api/{resource}/{id}')
 def edit(resource:str,id:int,payload:dict,user=Depends(current_user),db=Depends(get_db)):
     authorize(user,resource); data=parse_payload(resource,payload,True); obj=get(db,RESOURCES[resource],id)
-    if resource=='users' and obj.id==user.id and data.get('role',user.role)!=user.role: raise HTTPException(422,'Cannot change your own role')
+    if resource=='users' and obj.id==user.id and data.get('role',user.role)!=user.role: raise HTTPException(422,'Không thể thay đổi vai trò của chính mình')
     obj=save(db,resource,data,user,obj); db.commit(); return enriched(db,obj)
 
 @app.delete('/api/{resource}/{id}')
 def archive(resource:str,id:int,user=Depends(current_user),db=Depends(get_db)):
-    if user.role!='ADMIN': raise HTTPException(403,'Admin only')
-    if resource not in SCHEMAS or resource in {'tickets','maintenance','ticket-articles'}: raise HTTPException(405,'Historical records cannot be archived')
+    if user.role!='ADMIN': raise HTTPException(403,'Chỉ quản trị viên được thực hiện')
+    if resource not in SCHEMAS or resource in {'tickets','maintenance','ticket-articles'}: raise HTTPException(405,'Không thể lưu trữ bản ghi lịch sử')
     obj=get(db,RESOURCES[resource],id)
-    if resource=='vlans' and any(id in p.tagged_vlans for p in db.scalars(select(m.SwitchPort))): raise HTTPException(409,'VLAN is referenced by tagged switch ports')
+    if resource=='vlans' and any(id in p.tagged_vlans for p in db.scalars(select(m.SwitchPort))): raise HTTPException(409,'VLAN đang được sử dụng tại cổng switch')
     if resource=='master-data':
         from .defaults import DEFAULT_MASTER_DATA
-        if obj.code in [name.lower().replace(' ','_') for name in DEFAULT_MASTER_DATA.get(obj.group,[])]: raise HTTPException(422,'Built-in workflow identifiers cannot be archived; change their display names instead')
-    if resource=='users' and obj.id==user.id: raise HTTPException(422,'Cannot archive yourself')
+        if obj.code in [name.lower().replace(' ','_') for name in DEFAULT_MASTER_DATA.get(obj.group,[])]: raise HTTPException(422,'Không thể lưu trữ mã quy trình có sẵn; chỉ được đổi tên hiển thị')
+    if resource=='users' and obj.id==user.id: raise HTTPException(422,'Không thể vô hiệu hóa tài khoản của chính mình')
     # Prevent archiving records still referenced by other records.
     for model in RESOURCES.values():
         for c in inspect(model).columns:
             if any(fk.column.table.name==obj.__tablename__ for fk in c.foreign_keys):
-                if db.scalar(select(func.count()).select_from(model).where(c==id)): raise HTTPException(409,'Record is referenced; retain it for history')
+                if db.scalar(select(func.count()).select_from(model).where(c==id)): raise HTTPException(409,'Bản ghi đang được tham chiếu; cần giữ lại để tra cứu lịch sử')
     old=serialize(obj); obj.archived=True; audit(db,user,'archived',resource,obj,old); db.commit(); return {'ok':True}

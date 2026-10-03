@@ -1,3 +1,4 @@
+import { MaintenanceDetail } from './MaintenanceDetail'
 import { AssetDetail } from './AssetDetail'
 import { Link,useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
@@ -17,6 +18,7 @@ export function Detail({user,open}:{user:Row,open:(s:EditorState)=>void}){
  if(isLoading)return <div className="loading">Đang tải bản ghi…</div>
  if(error)return <div className="error">{error.message}</div>
  if(!data)return null
+ if(resource==='maintenance')return <MaintenanceDetail data={data} user={user} open={open}/>
  if(resource==='assets')return <AssetDetail data={data} user={user} open={open}/>
  const back=resource==='inventory-items'?'/inventory?tab=consumables':historyLink(resource)
  const backLabel=resource==='inventory-items'||resource==='inventory-transactions'?'Tồn kho':configs[resource]?.title||label(resource)

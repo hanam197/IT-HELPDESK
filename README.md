@@ -70,7 +70,7 @@ Swagger: **http://localhost:8000/docs**, OpenAPI: `/openapi.json`. Đăng nhập
 - **Inventory (Tồn kho):** tên mới của Consumables and parts; gồm Assets đang ở kho, Consumables và lịch sử nhập/xuất, lọc theo kho.
 - **Asset → History:** bảng lịch sử toàn bộ vòng đời của từng thiết bị: nhập/xuất kho, cấp phát/thu hồi, di chuyển, sửa chữa, thay đổi thông tin và ngừng sử dụng. Không còn module History riêng; lịch sử nhập/xuất nằm trong Inventory, audit log nằm trong Settings. URL History cũ tự chuyển hướng.
 - **Asset detail:** lấy Model làm tiêu đề; không nhập/hiển thị Name, Source, Warranty Expiry hay Notes. Received by và Handed over by lấy từ người thực hiện giao dịch, không phải người nhận. Dữ liệu cũ thiếu người thực hiện hiển thị trống thay vì suy đoán. Quick actions nằm bên phải; xuất kho mở popup ngay trong Asset/Inventory, tự chọn thiết bị/vật tư và kho.
-- **Ngừng sử dụng:** nhập lý do, thu hồi cấp phát và hoàn tất bảo trì trước khi ngừng sử dụng. Thao tác này đóng vị trí hiện tại, đưa thiết bị ra khỏi tồn kho và giữ lịch sử.
+- **Ngừng sử dụng:** nhập lý do; hệ thống kết thúc cấp phát và phiếu xử lý đang mở trong cùng giao dịch. Thao tác này đóng vị trí hiện tại, đưa thiết bị ra khỏi tồn kho và giữ lịch sử.
 - **Stations:** một mục sidebar trực tiếp, không còn menu con All locations.
 - **Settings → Asset types:** quản lý loại thiết bị. Asset operations không còn là module riêng; thao tác vẫn có trên chi tiết asset. Ticket được gỡ khỏi giao diện, dữ liệu cũ được giữ lại.
 
@@ -78,7 +78,7 @@ Swagger: **http://localhost:8000/docs**, OpenAPI: `/openapi.json`. Đăng nhập
 
 - **Dashboard:** 10 KPI, phân bố asset, hoạt động 7 ngày, attention và audit gần đây; liên kết drill-down.
 - **Assets:** tạo/sửa thiết bị, serial/code unique, upload ảnh JPG/PNG/WebP, import XLSX theo template, loại thiết bị có capability flags, Overview / Network / History. Tạo mới tại Warehouse, bắt buộc có receiving warehouse và ghi Asset + Location History + phiếu nhập kho trong cùng transaction. Trang inventory giữ xuất XLSX và không hiển thị CSV. QR mở `/assets/{id}` và in nhãn bằng trình duyệt.
-- **Operations:** move, assign, transfer, return; chuyển vị trí không thay đổi người chịu trách nhiệm. Assignment không làm thay đổi location. Thu hồi ghi tình trạng trả; lịch sử luôn được giữ lại.
+- **Operations:** move, assign, transfer, return; chuyển vị trí không thay đổi người chịu trách nhiệm. Assignment không làm thay đổi location. Thu hồi bắt buộc chọn kho nhận và một trong 5 trạng thái thiết bị từ danh mục dùng chung, kết thúc cấp phát và nhập kho trong cùng giao dịch, ghi tình trạng trả; lịch sử luôn được giữ lại.
 - **Network/IPAM:** VLAN, subnet IPv4/IPv6, gateway/DNS, interface/MAC/hostname, IP, switch port, native/tagged VLAN. Tìm IP/MAC/hostname/asset/switch/port. Một IP có duy nhất một bản ghi; V1 không cho phép gán trùng IP bằng override.
 - **Maintenance:** diagnosis/action/parts/cost/vendor; đưa thiết bị vào MAINTENANCE, khôi phục trạng thái phù hợp khi hoàn tất hoặc hủy; bảo toàn trường hợp thiết bị được trả trong lúc đang sửa.
 - **Knowledge Base:** nội dung Markdown, category, draft/published/archived. Markdown không render HTML tùy ý.
@@ -183,7 +183,7 @@ DEMO_PASSWORD='your_seed_password' npx playwright test
 npm run build
 ```
 
-Test bao gồm: login/RBAC/CSRF, location và assignment history, transfer/return, duplicate code/serial/IP, MAC/IP validation, asset capability, ticket → maintenance → resolution → KB, attachment, search, export, concurrent ticket numbers, timezone drill-down, repair/return state restoration; trình duyệt kiểm tra module navigation, tìm IP tới asset, tạo ticket/timeline và lifecycle thiết bị.
+Test bao gồm: login/RBAC/CSRF, location và assignment history, transfer/return, duplicate code/serial/IP, MAC/IP validation, asset capability, Ticket/KB kế thừa và Maintenance độc lập, attachment, search, export, concurrent ticket numbers, timezone drill-down, repair/return state restoration; trình duyệt kiểm tra module navigation, tìm IP tới asset, tạo ticket/timeline và lifecycle thiết bị.
 
 ## Vận hành và phạm vi
 
@@ -199,8 +199,18 @@ Test bao gồm: login/RBAC/CSRF, location và assignment history, transfer/retur
 
 - Giao diện mặc định tiếng Việt trên các module, biểu mẫu, bảng, thông báo nghiệp vụ và tiêu đề xuất CSV/XLSX. Mã API, tên model/serial và dữ liệu người dùng nhập giữ nguyên. Biểu mẫu nhập Excel dùng tiêu đề tiếng Việt, vẫn nhận tệp có tiêu đề kỹ thuật cũ.
 - Trạng thái hiện tại nằm trên Asset: `current_status`, `current_location_id`, `current_assignee_id`. `status_id` được đồng bộ để tương thích bộ lọc cũ; không được chỉnh trạng thái bằng PATCH thông thường.
-- Tám sự kiện: `RECEIVED`, `ISSUED`, `RETURNED`, `MOVED`, `REASSIGNED`, `MAINTENANCE`, `RETIRED`, `UPDATED`. Mỗi thao tác tạo một sự kiện cùng transaction, lưu ảnh chụp dữ liệu trước/sau; không tạo `STATUS_CHANGED` riêng.
-- Nhập tài sản và thu hồi → `AVAILABLE`; cấp phát → `IN_USE`; bảo trì → `MAINTENANCE`, hoàn tất/hủy khôi phục `AVAILABLE` hoặc `IN_USE`. Điều chuyển chỉ đổi vị trí. Chuyển người phụ trách dùng `/api/assets/{id}/reassign`, giữ vị trí và `IN_USE`, lưu cả người cũ/mới.
-- `RETIRED` chỉ có nghĩa ngừng sử dụng, chặn cấp phát/điều chuyển và không quản lý giá trị thanh lý. Cần thu hồi người phụ trách và kết thúc bảo trì trước thao tác này.
-- Lịch sử giữ bảng hiện tại, mới nhất trước, lọc tám loại sự kiện và mở popup bằng click hoặc Enter. Popup cho xem trạng thái, vị trí, người phụ trách trước/sau và nội dung thay đổi.
-- Migration `0005` chuẩn hóa trạng thái và bổ sung lịch sử từ bản ghi cũ, giữ nguyên bản ghi gốc. Sao lưu database trước `alembic upgrade head`. Migration không cho downgrade xóa bằng chứng trước/sau; cần khôi phục bản sao lưu nếu quay lại phiên bản cũ. Thông tin người thực hiện không có trong dữ liệu cũ được hiển thị “Chưa ghi nhận”.
+- Chín sự kiện: `RECEIVED`, `ISSUED`, `RETURNED`, `MOVED`, `REASSIGNED`, `MAINTENANCE`, `RETIRED`, `DISPOSED`, `UPDATED`. Mỗi thao tác tạo một sự kiện cùng transaction, lưu trạng thái trước/sau, thời gian và người thực hiện; không tạo `STATUS_CHANGED` trùng lặp.
+- Đúng 5 trạng thái: `AVAILABLE`, `IN_USE`, `MAINTENANCE`, `RETIRED`, `DISPOSED`. Form tạo tài sản cho chọn trạng thái, bắt buộc và mặc định `AVAILABLE`; API giữ lựa chọn. Import Excel nhận cột Trạng thái với cùng 5 mã.
+- Xuất kho chỉ từ `AVAILABLE`; thu hồi chọn `AVAILABLE`, `MAINTENANCE` hoặc `RETIRED`. Chi tiết lỗi/sửa chữa nằm trong phiếu bảo trì. Hoàn tất bảo trì khôi phục `AVAILABLE` hoặc `IN_USE` theo tình trạng cấp phát/kho.
+- Ngừng sử dụng kết thúc cấp phát và phiếu bảo trì mở trong cùng giao dịch. Thanh lý chỉ cho `RETIRED → DISPOSED`; tài sản đã thanh lý không thể quay lại hoạt động. Không thêm field nghiệp vụ cho trạng thái mới.
+- Lịch sử hiển thị `Old Status → New Status`, lọc cả sự kiện thanh lý, mở popup bằng click hoặc Enter. Popup cho xem trạng thái, vị trí, người phụ trách trước/sau và nội dung thay đổi.
+- Migration `0007` chuyển các trạng thái lỗi dư về `MAINTENANCE`, đồng bộ snapshot và giữ audit gốc. Sao lưu database trước `alembic upgrade head`; dùng bản sao lưu để quay lại phiên bản cũ. Xem [flow và quy tắc chi tiết](asset-lifecycle.md).
+
+
+## Maintenance: ghi nhận vấn đề và IT xử lý
+
+Maintenance độc lập với Ticket. Tạo vấn đề không tự chuyển trạng thái thiết bị. Tái sử dụng `type_id` cho sáu nhóm Hardware / Network / Software / Power / Peripheral / Other; UI chỉ hiển thị nhãn thân thiện. Lỗi cụ thể nằm trong `problem`.
+
+“Dừng thiết bị để sửa” chuyển IN_USE → MAINTENANCE và giữ Station/Assignee. Hoàn tất xử lý trả lại IN_USE khi đang dùng ngoài kho; muốn thu hồi phải dùng RETURN riêng. RETURN về AVAILABLE đồng thời đóng phiếu xử lý trong cùng transaction. Không sửa được thì dùng Ngừng sử dụng; thanh lý chỉ từ RETIRED.
+
+Chạy `alembic upgrade head` sau khi sao lưu để áp dụng migration 0008: bỏ Ticket FK, giữ nội dung xử lý và tham chiếu cũ trong Note. Xem [review, quy tắc và API Maintenance](docs/maintenance-flow.md).

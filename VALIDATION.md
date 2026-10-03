@@ -91,3 +91,104 @@ Các test chưa thay thế UAT với dữ liệu và quy trình thật. README n
 - Giao diện tiếng Việt bao gồm sidebar, tiêu đề, tab, bảng, biểu mẫu, nút, trạng thái/sự kiện, lỗi nghiệp vụ, ngày giờ và tiêu đề tài liệu xuất. Mã kỹ thuật API và nội dung dữ liệu do người dùng nhập được giữ nguyên.
 - Migration thử trên bản sao database local bảo toàn số lượng tài sản, cấp phát, lịch sử vị trí, giao dịch kho và audit; kiểm tra khóa ngoại không có lỗi. Migration giữ bản ghi lịch sử gốc và tạo sự kiện chuẩn để hiển thị bảng History.
 - Hai cảnh báo deprecation của Starlette/httpx/anyio vẫn còn; không ảnh hưởng kết quả. Chưa kiểm tra lại migration/concurrency trên PostgreSQL trong đợt này.
+
+## Unified asset return — 2026-09-25
+
+- One “Thu hồi” action opens warehouse selection and return condition; confirmation ends assignment and receives the asset into that warehouse atomically.
+- The legacy `/api/assets/{id}/return` endpoint now requires `warehouse_id` and uses the stock receipt flow. Active maintenance blocks return.
+- Backend: 24 tests passed, including missing/invalid warehouse rollback, alternate warehouse receipt, duplicate return rejection and a single RETURNED event.
+- TypeScript + Vite production build passed.
+- Chromium: asset detail station issue → return to a different warehouse → retirement, and asset create → move → user assignment → return → maintenance both passed against an isolated SQLite database.
+
+## Required return condition — 2026-09-25
+
+- Returns require an explicit choice with no preselection: AVAILABLE (Sẵn sàng sử dụng) or REPAIR_NEEDED (Cần sửa chữa). Both return the asset to the selected warehouse; repair-needed stock cannot be issued.
+- API rejects missing/unsupported return status; return history preserves the selected state. Cancelling repair preserves REPAIR_NEEDED; completing repair restores availability.
+- Backend: 25 tests passed, including migration and return/repair lifecycle. TypeScript + Vite build passed. Two Chromium workflows passed against an isolated SQLite database.
+- Migration 0006 adds the repair-needed vocabulary for existing databases. Applying migration and restarting the running local backend remain pending: automatic approval review rejected these operational actions without explicit authorization.
+
+## Shared five-state return selector — 2026-09-25
+
+- Return selection now uses the same five canonical asset states via `/meta` (`asset-statuses`), with names read from the asset-status vocabulary. Both return APIs validate against the shared STATUS_CODES rather than a separate two-value list.
+- No state is preselected. All five choices close the assignment, receive the asset into the selected warehouse and preserve the chosen state in history, including IN_USE, MAINTENANCE and RETIRED.
+- Removed the accidental REPAIR_NEEDED entry from event labels.
+- Validation: 26 backend tests passed, TypeScript/Vite build passed, and both asset-detail and asset-create Chromium workflows passed on an isolated database.
+- The previous operational approval block remains: migration 0006 and restart of the existing local backend have not been performed.
+
+## Asset Status Flow — 2026-09-26
+
+### Review findings and fixes
+
+- Vocabulary included `REPAIR_NEEDED`, while master-data validation still allowed only four codes; `DISPOSED` was absent. Active metadata, defaults, model validation, filters, labels and dashboard now use exactly AVAILABLE / IN_USE / MAINTENANCE / RETIRED / DISPOSED.
+- Creation disabled Status and both API/service layers silently forced AVAILABLE. Status is now required and selectable in the form with AVAILABLE preselected; explicit selections survive registration and Excel import. Missing API/Excel status retains the backward-compatible AVAILABLE default; explicit null/invalid input is rejected.
+- Retirement blocked assigned or maintained assets. Retirement now atomically closes the active assignment and maintenance record, preserves repair results, clears active custody and emits the before/after event.
+- There was no disposal operation. Added authenticated `/api/assets/{id}/dispose`, available only for RETIRED, with required reason, history and terminal-state guards.
+- Return previously accepted IN_USE or any shared status, creating assets marked in use inside warehouse custody. Return now accepts AVAILABLE / MAINTENANCE / RETIRED and prevents skipping retirement to DISPOSED.
+- History already stored snapshots but omitted a visible status transition in the list. The list now displays Old Status → New Status and supports the DISPOSED event; actor, timestamp and detailed popup remain.
+- Migration 0007 normalizes obsolete repair-status aliases in assets, maintenance previous status and event snapshots. Original audit records, event timestamps, actors and repair descriptions remain. Retired assets are not automatically disposed. Database checks/triggers prevent obsolete current statuses.
+
+### Verification
+
+- 37 distinct backend tests passed: the complete 36-test suite plus the additional migration fixture test. Coverage includes all five creation states, defaults/required validation, invalid legacy codes, status filters, reports, Excel rollback, retirement from IN_USE/MAINTENANCE, disposal authorization, forbidden transitions, immutable terminal states and both legacy migrations.
+- All 8 Playwright scenarios passed on a separate seeded SQLite database at ports 8001/5174. Covered creation selection/required default, maintenance completion, warehouse issue/return, movement, reassignment, retirement, disposal, status history/filter, inventory and desktop/mobile navigation. Existing tests expecting a disabled Status or REPAIR_NEEDED were updated.
+- TypeScript and Vite production build passed; git diff whitespace check passed.
+- Migration tested on a copy of the live SQLite database, then applied to the live database after stopping the backend and taking a fresh backup: `backend/backups/asset-status-0007-20260926-140813.db`. Foreign-key check passed, active metadata has exactly five states, and backend health is OK after restart.
+- PostgreSQL-specific migration/concurrency was not exercised in this environment. SQLite upgrade uses triggers to avoid rebuilding the widely referenced assets table; newly created databases use the model CHECK constraint.
+- Compatibility decision: retain IN_USE → AVAILABLE for returns and AVAILABLE → MAINTENANCE / RETIRED for existing warehouse workflows. Details are in `asset-lifecycle.md`.
+
+## Maintenance issue workflow — 2026-09-27
+
+- Review and business/API rules: `docs/maintenance-flow.md`.
+- Maintenance creation/progress updates no longer stop assets. Explicit `POST /api/maintenance/{id}/stop-asset` keeps station, assignee and custody while switching to MAINTENANCE. Completing an open repair restores operational state according to current custody; cancellation does not imply repair success.
+- RETURN → AVAILABLE now completes the active issue in the same transaction; RETURN/RETIRED history includes full repair snapshots. Updates to closed issues cannot resurrect an asset. Critical repair details, technician, dates, cost, parts and notes are recorded in Asset History.
+- Reused type_id/master-data for six issue categories. Removed ticket_id and the Ticket activity/detail dependency. Kept existing due_at data without exposing it in the new form/list/detail; added no business table/column.
+- 49 distinct backend tests passed (37 existing tests and 12 new tests). New coverage exercises all four requested flows for both station-only and user-assigned assets, unchanged custody, old/new state, actor/time, complete repair snapshots, dates, invalid costs/categories, forbidden Ticket payloads, permissions and terminal-state guards.
+- All 12 distinct browser scenarios passed on isolated SQLite data, including four new Maintenance flows, friendly labels, create/edit/list/detail/history, warehouse RETURN, disposal and mobile overflow checks. Browser runs were split/restarted to respect the existing 10-login rate limit; test locators were refined to distinguish Problem/Issue Category and Diagnosis/status option labels.
+- TypeScript + Vite build and git diff whitespace check passed.
+- Migration 0008 tested from older migrations, on fixtures with an actual Ticket FK, and on a copy of the live database. Legacy categories map to Other with the old name retained in Note; historical Ticket numbers are retained as text before dropping the FK/column. Upgrade does not change asset state or create new events.
+- Applied 0008 to the running SQLite database after stopping the backend and creating `backend/backups/maintenance-0008-20260927-103814.db`. Verified exact preservation of assets, assignments, location_history, asset_operations, inventory_transactions, audit_logs and tickets; all maintenance fields except normalized type_id/note and removed ticket_id were unchanged. Foreign-key check passed. Backend/frontend restarted.
+- Updated architecture export: 24 model tables, 284 columns, 57 FKs, revision 0008; no missing/extra model columns compared with the live schema. PostgreSQL migration/concurrency was not run in this environment.
+
+
+## 2026-09-27 — Thu hồi tạo bảo trì và popup
+
+- Thêm nguyên nhân thu hồi vào form; lưu bằng note của giao dịch và description của History, không thêm cột DB.
+- Thu hồi kèm tạo phiếu bảo trì là một transaction; kiểm tra rollback khi kỹ thuật viên không hợp lệ, từ chối trạng thái không phù hợp/phiếu trùng; xác nhận sửa xong AVAILABLE và xuất lại IN_USE.
+- History tiếp tục dạng bảng; 5 trạng thái không đổi; Diagnosis hiển thị Nguyên nhân / Chẩn đoán; editor/kho chuyển popup giữa màn hình.
+- Backend: `cd backend && ../.venv/bin/python -m pytest tests -q` — 51 passed.
+- Frontend: `npm run build` — passed.
+- Playwright trên DB test riêng: `maintenance-flow.spec.ts`, `return-maintenance.spec.ts` — 5 passed; bốn flow cũ và luồng mới, vị trí popup desktop/mobile, History dạng bảng.
+
+
+## 2026-09-27 — Maintenance estimate
+
+- Input kết thúc thay bằng số giờ dự kiến; API chuyển estimate_hours sang due_at từ start_at, lưu History; end_at chỉ là thời điểm đóng thực tế.
+- Bộ test Maintenance: 14 passed, gồm estimate giờ lẻ, chỉnh estimate, không tự đóng, từ chối số không dương/NaN/quá lớn và giữ hạn dự kiến khi hoàn tất.
+- TypeScript/Vite build passed.
+- Browser: maintenance-flow.spec.ts (onsite) — passed, nhập estimate rồi tạo/sửa/hoàn tất thành công. Live backend health OK, frontend phục vụ input mới.
+
+
+## 2026-09-27 — Bảo trì nhanh / thu hồi tạo phiếu
+
+- Form tạo trực tiếp hoàn tất nhanh, yêu cầu nguyên nhân và cách xử lý; không hiển thị estimate. Nhánh cần thời gian mở popup Thu hồi tạo bảo trì kèm estimate và kiểm soát quyền kho.
+- Backend maintenance + warehouse: 26 passed. Có kiểm tra hoàn tất nhanh một lần lưu, giữ cấp phát/trạng thái/vị trí và snapshot.
+- Browser: 6 passed (quick-maintenance, return-maintenance và bốn flow bảo trì đang mở); kiểm tra nhanh đóng ngay, chậm tạo phiếu mở, estimate và popup desktop/mobile.
+- TypeScript/Vite build passed; không thay schema hoặc năm trạng thái Asset.
+
+
+## 2026-09-27 — Popup lịch sử cho năm sự kiện
+
+- Giữ DataTable, lọc sự kiện và điều hướng bàn phím của lịch sử. Nhập tài sản/Cấp phát/Thu hồi/Điều chuyển/Bảo trì có popup riêng theo thiết kế tham chiếu; các sự kiện còn lại giữ popup đầy đủ trước/sau.
+- Popup dùng snapshot lịch sử, thông tin chứng từ kho chỉ đọc và nhãn danh mục loại; không lấy Model/Serial/vị trí hiện tại thay snapshot cũ. Không thêm ảnh minh họa hoặc trạng thái ngoài bộ năm trạng thái.
+- Bảo trì hiển thị actor riêng với technician, thời gian sự kiện riêng với thời gian xử lý, dự kiến, vấn đề, nguyên nhân, cách xử lý, trạng thái phiếu, trạng thái Asset trước/sau và liên kết phiếu. Thu hồi có phiếu liên quan vẫn giữ chi tiết sửa chữa.
+- `npm run build`: passed. Backend asset-events + maintenance-issue-flow: 19 passed. Browser history-popups + asset-events + maintenance-flow: 6 passed.
+- Đã kiểm tra năm popup desktop/mobile, Enter/Escape, không tràn ngang, bản ghi nhập giữ Model cũ sau khi sửa hồ sơ. Đã xem ảnh chụp bảo trì desktop/mobile và điều chuyển desktop.
+
+
+## 2026-09-28 — Trang chi tiết Bảo trì / Sửa chữa
+
+- Refactor theo thiết kế: header số phiếu/trạng thái/thời gian/người xử lý, bốn bước Vấn đề–Nguyên nhân–Cách xử lý–Linh kiện và sidebar thiết bị/phiếu.
+- Dùng ảnh thiết bị thật khi có; S/N, vị trí/người sử dụng hiện tại lấy API Asset. Thời gian xử lý = end_at - start_at; due_at hiển thị riêng. Không lấy created_at thay start_at.
+- Phiếu mở có hoàn tất và menu thao tác theo quyền/trạng thái; phiếu đóng chỉ chỉnh sửa/xem lịch sử. Bảng linh kiện trình bày nội dung parts_replaced theo dòng; nhà cung cấp/chi phí là dữ liệu chung của phiếu. Chưa có liên kết vật tư/chứng từ kho, không tạo số lượng hoặc số phiếu xuất giả.
+- TypeScript/Vite build: passed. Playwright maintenance-detail, maintenance-flow (4), quick-maintenance, return-maintenance: 7 distinct tests passed. Kiểm tra ảnh desktop/mobile và thời lượng 1 giờ 15 phút; test giao diện chạy lại sau chỉnh bảng linh kiện.
+- Không thay model/API/schema hoặc năm trạng thái Asset.

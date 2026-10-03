@@ -1,0 +1,7 @@
+flowchart TD
+    U[IN_USE] -->|Ghi nhận vấn đề, xử lý tại chỗ| U
+    U -->|Dừng thiết bị để sửa| M[MAINTENANCE]
+    M -->|Hoàn tất xử lý, trả lại người/trạm hiện tại| U
+    M -->|RETURN, tình trạng Sẵn sàng| A[AVAILABLE trong kho]
+    M -->|Ngừng sử dụng| R[RETIRED]
+    R -->|Thanh lý riêng| D[DISPOSED]

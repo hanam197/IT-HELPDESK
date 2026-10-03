@@ -1,5 +1,5 @@
 from datetime import date, datetime, timezone
-from sqlalchemy import String, Text, ForeignKey, Boolean, Date, DateTime, Numeric, Integer, JSON, Index, text, UniqueConstraint
+from sqlalchemy import String, Text, ForeignKey, Boolean, Date, DateTime, Numeric, Integer, JSON, Index, text, UniqueConstraint, CheckConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from .database import Base
 
@@ -57,6 +57,7 @@ class Location(Record, Base):
 
 class Asset(Record, Base):
     __tablename__ = 'assets'
+    __table_args__ = (CheckConstraint("current_status IN ('AVAILABLE','IN_USE','MAINTENANCE','RETIRED','DISPOSED')", name='ck_asset_current_status'),)
     warehouse_id: Mapped[int | None] = mapped_column(ForeignKey('warehouses.id'))
     current_status: Mapped[str] = mapped_column(String(20),default='AVAILABLE')
     current_location_id: Mapped[int | None] = mapped_column(ForeignKey('locations.id'))
@@ -239,8 +240,9 @@ class Maintenance(Record, Base):
     vendor: Mapped[str | None] = mapped_column(String(150))
     cost: Mapped[float | None] = mapped_column(Numeric(14, 2))
     parts_replaced: Mapped[str | None] = mapped_column(Text)
+    replacement_asset_ids: Mapped[list | None] = mapped_column(JSON)
+    resolution_outcome: Mapped[str | None] = mapped_column(String(20))
     note: Mapped[str | None] = mapped_column(Text)
-    ticket_id: Mapped[int | None] = mapped_column(ForeignKey('tickets.id'))
     previous_status_id: Mapped[int | None] = mapped_column(ForeignKey('master_data.id'))
 
 class Article(Record, Base):

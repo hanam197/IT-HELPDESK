@@ -33,18 +33,19 @@ def test_location_and_assignment_history(client,meta):
     id=asset(client,meta)
     locs=[x['id'] for x in meta['locations'] if x['kind']=='station'][:2]
     for loc in locs:
-        assert client.post(f'/api/assets/{id}/move',json={'location_id':loc,'reason':'Operational relocation'}).status_code==200
+        assert client.post(f'/api/assets/{id}/move',json={'location_id':loc}).status_code==200
     assert client.post(f'/api/assets/{id}/move',json={'location_id':locs[-1],'reason':'No change'}).status_code==422
     body={'user_id':4,'condition_out':'Good condition'}
     assert client.post(f'/api/assets/{id}/assign',json=body).status_code==200
     assert client.post(f'/api/assets/{id}/assign',json=body).status_code==422
     assert client.post(f'/api/assets/{id}/transfer',json={**body,'user_id':2,'condition_in':'Good condition'}).status_code==200
-    assert client.post(f'/api/assets/{id}/return',json={'condition_in':'Good condition'}).status_code==200
+    assert client.post(f'/api/assets/{id}/return',json={'warehouse_id':meta['warehouses'][0]['id'],'return_status':'AVAILABLE','condition_in':'Good condition'}).status_code==200
     data=client.get(f'/api/assets/{id}/detail').json()
-    assert len(data['location-history'])==4
+    assert len(data['location-history'])==5
     assert sum(x['ended_at'] is None for x in data['location-history'])==1
     assert len(data['assignments'])==2 and all(x['returned_at'] for x in data['assignments'])
-    assert data['location_id']==locs[-1]
+    assert data['location_id']==meta['warehouses'][0]['location_id']
+    assert data['warehouse_id']==meta['warehouses'][0]['id']
     assert data['assignment_id'] is None
     assert len(data['audit-logs'])>=6
     assert client.patch('/api/location-history/1',json={'reason':'tamper'}).status_code==405
@@ -75,14 +76,16 @@ def test_ticket_maintenance_knowledge(client,meta):
     assert client.post(f'/api/tickets/{tid}/comments',json={'body':'Public update'}).status_code==200
     attachment=client.post(f'/api/tickets/{tid}/attachments',files={'file':('diagnosis.txt',b'Sensor test results','text/plain')});assert attachment.status_code==200
     assert client.get('/api/attachments/'+str(attachment.json()['id'])).content==b'Sensor test results'
-    maintenance=client.post('/api/maintenance',json={'asset_id':id,'ticket_id':tid,'problem':'Sensor malfunction','technician_id':3,'type_id':mid(meta,'maintenance_type','repair'),'status_id':mid(meta,'maintenance_status','open')});assert maintenance.status_code==201,maintenance.text
-    assert client.get(f'/api/assets/{id}').json()['current_status']=='MAINTENANCE'
-    assert client.patch('/api/maintenance/'+str(maintenance.json()['id']),json={'status_id':mid(meta,'maintenance_status','completed'),'action_taken':'Replaced sensor'}).status_code==200
+    maintenance=client.post('/api/maintenance',json={'asset_id':id,'problem':'Sensor malfunction','technician_id':3,'type_id':mid(meta,'maintenance_type','hardware'),'status_id':mid(meta,'maintenance_status','open')});assert maintenance.status_code==201,maintenance.text
     assert client.get(f'/api/assets/{id}').json()['current_status']=='IN_USE'
+    assert client.post('/api/maintenance/'+str(maintenance.json()['id'])+'/stop-asset').status_code==200
+    assert client.get(f'/api/assets/{id}').json()['current_status']=='MAINTENANCE'
+    assert client.patch('/api/maintenance/'+str(maintenance.json()['id']),json={'status_id':mid(meta,'maintenance_status','completed'),'resolution_outcome':'FIXED','diagnosis':'Đã xác định nguyên nhân','action_taken':'Replaced sensor'}).status_code==200
+    assert client.get(f'/api/assets/{id}').json()['current_status']=='AVAILABLE'
     assert client.patch(f'/api/tickets/{tid}',json={'status_id':mid(meta,'ticket_status','resolved')}).status_code==200
     article=client.post('/api/articles',json={'title':'Sensor repair','resolution':'Replace the sensor and verify operation.','category_id':mid(meta,'kb_category','hardware'),'status_id':mid(meta,'article_status','published')});assert article.status_code==201
     assert client.post('/api/ticket-articles',json={'ticket_id':tid,'article_id':article.json()['id']}).status_code==201
-    data=client.get(f'/api/tickets/{tid}/detail').json();assert data['resolved_at'];assert len(data['articles'])==1;assert len(data['maintenance'])==1
+    data=client.get(f'/api/tickets/{tid}/detail').json();assert data['resolved_at'];assert len(data['articles'])==1;assert 'maintenance' not in data
     with TestClient(app,headers={'X-Requested-With':'Helpdesk'}) as viewer:
         viewer.post('/api/auth/login',json={'username':'viewer','password':'TestPassword2026!'})
         assert all(not a['internal'] for a in viewer.get(f'/api/tickets/{tid}/detail').json()['activities'])
@@ -121,13 +124,16 @@ def test_filters_reports_network_lookup(client,meta):
 def test_maintenance_return_preserves_state(client,meta):
     id=asset(client,meta,'TEST-RETURN-REPAIR')
     assert client.post(f'/api/assets/{id}/assign',json={'user_id':4,'condition_out':'Good'}).status_code==200
-    maintenance=client.post('/api/maintenance',json={'asset_id':id,'problem':'Hardware fault','technician_id':3,'type_id':mid(meta,'maintenance_type','repair'),'status_id':mid(meta,'maintenance_status','open')}).json()
-    assert client.post(f'/api/assets/{id}/return',json={'condition_in':'Requires repair'}).status_code==200
+    maintenance=client.post('/api/maintenance',json={'asset_id':id,'problem':'Hardware fault','technician_id':3,'type_id':mid(meta,'maintenance_type','hardware'),'status_id':mid(meta,'maintenance_status','open')}).json()
+    assert client.get(f'/api/assets/{id}').json()['current_status']=='IN_USE'
+    assert client.post('/api/maintenance/'+str(maintenance['id'])+'/stop-asset').status_code==200
+    assert client.get(f'/api/assets/{id}').json()['current_status']=='MAINTENANCE'
+    assert client.get(f'/api/assets/{id}').json()['current_assignee_id']==4
+    assert client.post(f'/api/assets/{id}/return',json={'warehouse_id':meta['warehouses'][0]['id'],'return_status':'AVAILABLE','condition_in':'Repaired'}).status_code==200
+    assert client.get('/api/maintenance/'+str(maintenance['id'])).json()['end_at']
     assert client.get(f'/api/assets/{id}').json()['current_status']=='AVAILABLE'
-    assert client.patch('/api/maintenance/'+str(maintenance['id']),json={'status_id':mid(meta,'maintenance_status','completed')}).status_code==200
-    assert client.get(f'/api/assets/{id}').json()['current_status']=='AVAILABLE'
-    assert client.post(f'/api/assets/{id}/assign',json={'user_id':4,'condition_out':'Repaired'}).status_code==200
-    assert client.patch('/api/maintenance/'+str(maintenance['id']),json={'note':'Invoice received'}).status_code==200
+    assert client.post('/api/inventory/transactions',json={'transaction_type':'ISSUE','warehouse_id':meta['warehouses'][0]['id'],'asset_id':id,'recipient_user_id':4,'condition':'Repaired'}).status_code==201
+    assert client.patch('/api/maintenance/'+str(maintenance['id']),json={'note':'Invoice received'}).status_code==422
     assert client.get(f'/api/assets/{id}').json()['current_status']=='IN_USE'
 
 def test_create_article_from_ticket_is_atomic(client,meta):

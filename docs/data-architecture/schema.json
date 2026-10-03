@@ -1,0 +1,4695 @@
+{
+  "exported_at": "2026-09-27T10:39:13+07:00",
+  "migration": "0008",
+  "database_dialect": "sqlite",
+  "scope": "Schema only; no business rows or secrets",
+  "tables": [
+    {
+      "name": "articles",
+      "description": "Bài kiến thức, hướng xử lý và người viết.",
+      "columns": [
+        {
+          "name": "number",
+          "model_type": "VARCHAR(40)",
+          "database_type": "VARCHAR(40)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": true,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "title",
+          "model_type": "VARCHAR(200)",
+          "database_type": "VARCHAR(200)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "category_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "master_data.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "summary",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "problem",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "symptoms",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "cause",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "resolution",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "commands",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "notes",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "tags",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "author_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "users.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "status_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "master_data.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "created_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "updated_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "archived",
+          "model_type": "BOOLEAN",
+          "database_type": "BOOLEAN",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "False",
+          "database_default": null
+        }
+      ],
+      "foreign_keys": [
+        {
+          "name": null,
+          "constrained_columns": [
+            "category_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "master_data",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": null,
+          "constrained_columns": [
+            "author_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "users",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": null,
+          "constrained_columns": [
+            "status_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "master_data",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        }
+      ],
+      "database_unique_constraints": [
+        {
+          "name": null,
+          "column_names": [
+            "number"
+          ]
+        }
+      ],
+      "database_indexes": [],
+      "database_checks": [],
+      "model_checks": []
+    },
+    {
+      "name": "asset_operations",
+      "description": "Lịch sử nghiệp vụ tài sản với JSON trước/sau, thời gian và người thực hiện.",
+      "columns": [
+        {
+          "name": "before_state",
+          "model_type": "JSON",
+          "database_type": "JSON",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "after_state",
+          "model_type": "JSON",
+          "database_type": "JSON",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "source_ref",
+          "model_type": "VARCHAR(120)",
+          "database_type": "VARCHAR(120)",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": true,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "number",
+          "model_type": "VARCHAR(40)",
+          "database_type": "VARCHAR(40)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": true,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "asset_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "assets.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "operation_type",
+          "model_type": "VARCHAR(30)",
+          "database_type": "VARCHAR(30)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "from_entity_type",
+          "model_type": "VARCHAR(30)",
+          "database_type": "VARCHAR(30)",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "from_entity_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "to_entity_type",
+          "model_type": "VARCHAR(30)",
+          "database_type": "VARCHAR(30)",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "to_entity_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "operation_date",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "condition_before",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "condition_after",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "performed_by",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "users.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "reason",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "note",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "created_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "updated_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "archived",
+          "model_type": "BOOLEAN",
+          "database_type": "BOOLEAN",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "False",
+          "database_default": null
+        }
+      ],
+      "foreign_keys": [
+        {
+          "name": null,
+          "constrained_columns": [
+            "asset_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "assets",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": null,
+          "constrained_columns": [
+            "performed_by"
+          ],
+          "referred_schema": null,
+          "referred_table": "users",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        }
+      ],
+      "database_unique_constraints": [
+        {
+          "name": null,
+          "column_names": [
+            "number"
+          ]
+        }
+      ],
+      "database_indexes": [
+        {
+          "name": "uq_asset_event_source",
+          "column_names": [
+            "source_ref"
+          ],
+          "unique": 1,
+          "dialect_options": {}
+        }
+      ],
+      "database_checks": [],
+      "model_checks": []
+    },
+    {
+      "name": "asset_types",
+      "description": "Loại tài sản và các cờ cho phép cấp phát, vị trí, mạng, bảo trì.",
+      "columns": [
+        {
+          "name": "name",
+          "model_type": "VARCHAR(100)",
+          "database_type": "VARCHAR(100)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": true,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "prefix",
+          "model_type": "VARCHAR(20)",
+          "database_type": "VARCHAR(20)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "track_serial",
+          "model_type": "BOOLEAN",
+          "database_type": "BOOLEAN",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "True",
+          "database_default": "1"
+        },
+        {
+          "name": "track_location",
+          "model_type": "BOOLEAN",
+          "database_type": "BOOLEAN",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "True",
+          "database_default": null
+        },
+        {
+          "name": "allow_assignment",
+          "model_type": "BOOLEAN",
+          "database_type": "BOOLEAN",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "False",
+          "database_default": null
+        },
+        {
+          "name": "allow_station",
+          "model_type": "BOOLEAN",
+          "database_type": "BOOLEAN",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "True",
+          "database_default": "1"
+        },
+        {
+          "name": "track_network",
+          "model_type": "BOOLEAN",
+          "database_type": "BOOLEAN",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "True",
+          "database_default": null
+        },
+        {
+          "name": "allow_ticket",
+          "model_type": "BOOLEAN",
+          "database_type": "BOOLEAN",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "True",
+          "database_default": null
+        },
+        {
+          "name": "track_maintenance",
+          "model_type": "BOOLEAN",
+          "database_type": "BOOLEAN",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "True",
+          "database_default": null
+        },
+        {
+          "name": "has_ports",
+          "model_type": "BOOLEAN",
+          "database_type": "BOOLEAN",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "False",
+          "database_default": null
+        },
+        {
+          "name": "id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "created_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "updated_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "archived",
+          "model_type": "BOOLEAN",
+          "database_type": "BOOLEAN",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "False",
+          "database_default": null
+        }
+      ],
+      "foreign_keys": [],
+      "database_unique_constraints": [
+        {
+          "name": null,
+          "column_names": [
+            "name"
+          ]
+        }
+      ],
+      "database_indexes": [],
+      "database_checks": [],
+      "model_checks": []
+    },
+    {
+      "name": "assets",
+      "description": "Hồ sơ thiết bị có serial và trạng thái/vị trí/người phụ trách hiện tại.",
+      "columns": [
+        {
+          "name": "warehouse_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "warehouses.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "current_status",
+          "model_type": "VARCHAR(20)",
+          "database_type": "VARCHAR(20)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "AVAILABLE",
+          "database_default": "'AVAILABLE'"
+        },
+        {
+          "name": "current_location_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "locations.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "current_assignee_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "users.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "code",
+          "model_type": "VARCHAR(40)",
+          "database_type": "VARCHAR(40)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": true,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "name",
+          "model_type": "VARCHAR(150)",
+          "database_type": "VARCHAR(150)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "type_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "asset_types.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "status_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "master_data.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "brand",
+          "model_type": "VARCHAR(100)",
+          "database_type": "VARCHAR(100)",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "model",
+          "model_type": "VARCHAR(100)",
+          "database_type": "VARCHAR(100)",
+          "nullable": false,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "serial",
+          "model_type": "VARCHAR(150)",
+          "database_type": "VARCHAR(150)",
+          "nullable": false,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": true,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "received_date",
+          "model_type": "DATE",
+          "database_type": "DATE",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "handover_date",
+          "model_type": "DATE",
+          "database_type": "DATE",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "purchase_date",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "warranty_expiry",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "vendor",
+          "model_type": "VARCHAR(150)",
+          "database_type": "VARCHAR(150)",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "cost",
+          "model_type": "NUMERIC(14, 2)",
+          "database_type": "NUMERIC(14, 2)",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "description",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "notes",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "photo",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "created_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "updated_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "archived",
+          "model_type": "BOOLEAN",
+          "database_type": "BOOLEAN",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "False",
+          "database_default": null
+        }
+      ],
+      "foreign_keys": [
+        {
+          "name": null,
+          "constrained_columns": [
+            "type_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "asset_types",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": null,
+          "constrained_columns": [
+            "status_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "master_data",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": null,
+          "constrained_columns": [
+            "current_assignee_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "users",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": null,
+          "constrained_columns": [
+            "current_location_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "locations",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": null,
+          "constrained_columns": [
+            "warehouse_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "warehouses",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        }
+      ],
+      "database_unique_constraints": [
+        {
+          "name": null,
+          "column_names": [
+            "code"
+          ]
+        },
+        {
+          "name": null,
+          "column_names": [
+            "serial"
+          ]
+        }
+      ],
+      "database_indexes": [],
+      "database_checks": [],
+      "model_checks": [
+        "current_status IN ('AVAILABLE','IN_USE','MAINTENANCE','RETIRED','DISPOSED')"
+      ]
+    },
+    {
+      "name": "assignments",
+      "description": "Lịch sử cấp phát; returned_at rỗng nghĩa là đang cấp phát.",
+      "columns": [
+        {
+          "name": "asset_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "assets.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "user_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "users.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "department",
+          "model_type": "VARCHAR(100)",
+          "database_type": "VARCHAR(100)",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "assigned_by",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "users.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "expected_return",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "returned_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "condition_out",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "condition_in",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "note",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "created_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "updated_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "archived",
+          "model_type": "BOOLEAN",
+          "database_type": "BOOLEAN",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "False",
+          "database_default": null
+        }
+      ],
+      "foreign_keys": [
+        {
+          "name": null,
+          "constrained_columns": [
+            "asset_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "assets",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": null,
+          "constrained_columns": [
+            "user_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "users",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": null,
+          "constrained_columns": [
+            "assigned_by"
+          ],
+          "referred_schema": null,
+          "referred_table": "users",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        }
+      ],
+      "database_unique_constraints": [],
+      "database_indexes": [
+        {
+          "name": "uq_active_assignment",
+          "column_names": [
+            "asset_id"
+          ],
+          "unique": 1,
+          "dialect_options": {
+            "sqlite_where": "returned_at IS NULL"
+          }
+        }
+      ],
+      "database_checks": [],
+      "model_checks": []
+    },
+    {
+      "name": "attachments",
+      "description": "Metadata tệp đính kèm ticket; nội dung tệp lưu trên filesystem.",
+      "columns": [
+        {
+          "name": "ticket_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "tickets.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "user_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "users.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "filename",
+          "model_type": "VARCHAR(255)",
+          "database_type": "VARCHAR(255)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "storage_key",
+          "model_type": "VARCHAR(100)",
+          "database_type": "VARCHAR(100)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": true,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "created_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "updated_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "archived",
+          "model_type": "BOOLEAN",
+          "database_type": "BOOLEAN",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "False",
+          "database_default": null
+        }
+      ],
+      "foreign_keys": [
+        {
+          "name": null,
+          "constrained_columns": [
+            "ticket_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "tickets",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": null,
+          "constrained_columns": [
+            "user_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "users",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        }
+      ],
+      "database_unique_constraints": [
+        {
+          "name": null,
+          "column_names": [
+            "storage_key"
+          ]
+        }
+      ],
+      "database_indexes": [],
+      "database_checks": [],
+      "model_checks": []
+    },
+    {
+      "name": "audit_logs",
+      "description": "Nhật ký kỹ thuật: đối tượng, hành động, người thao tác và JSON giá trị cũ/mới.",
+      "columns": [
+        {
+          "name": "id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "user_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "users.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "action",
+          "model_type": "VARCHAR(80)",
+          "database_type": "VARCHAR(80)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "object_type",
+          "model_type": "VARCHAR(80)",
+          "database_type": "VARCHAR(80)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "object_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "old_value",
+          "model_type": "JSON",
+          "database_type": "JSON",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "new_value",
+          "model_type": "JSON",
+          "database_type": "JSON",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "created_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        }
+      ],
+      "foreign_keys": [
+        {
+          "name": null,
+          "constrained_columns": [
+            "user_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "users",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        }
+      ],
+      "database_unique_constraints": [],
+      "database_indexes": [],
+      "database_checks": [],
+      "model_checks": []
+    },
+    {
+      "name": "counters",
+      "description": "Bộ đếm sinh số chứng từ theo tiền tố/năm.",
+      "columns": [
+        {
+          "name": "key",
+          "model_type": "VARCHAR(40)",
+          "database_type": "VARCHAR(40)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "value",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "0",
+          "database_default": null
+        }
+      ],
+      "foreign_keys": [],
+      "database_unique_constraints": [],
+      "database_indexes": [],
+      "database_checks": [],
+      "model_checks": []
+    },
+    {
+      "name": "interfaces",
+      "description": "Giao diện mạng của tài sản, MAC duy nhất.",
+      "columns": [
+        {
+          "name": "asset_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "assets.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "name",
+          "model_type": "VARCHAR(100)",
+          "database_type": "VARCHAR(100)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "mac",
+          "model_type": "VARCHAR(17)",
+          "database_type": "VARCHAR(17)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": true,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "hostname",
+          "model_type": "VARCHAR(150)",
+          "database_type": "VARCHAR(150)",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "created_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "updated_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "archived",
+          "model_type": "BOOLEAN",
+          "database_type": "BOOLEAN",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "False",
+          "database_default": null
+        }
+      ],
+      "foreign_keys": [
+        {
+          "name": null,
+          "constrained_columns": [
+            "asset_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "assets",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        }
+      ],
+      "database_unique_constraints": [
+        {
+          "name": null,
+          "column_names": [
+            "mac"
+          ]
+        }
+      ],
+      "database_indexes": [],
+      "database_checks": [],
+      "model_checks": []
+    },
+    {
+      "name": "inventory_items",
+      "description": "Vật tư quản lý theo số lượng, đơn vị và kho.",
+      "columns": [
+        {
+          "name": "code",
+          "model_type": "VARCHAR(40)",
+          "database_type": "VARCHAR(40)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": true,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "name",
+          "model_type": "VARCHAR(150)",
+          "database_type": "VARCHAR(150)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "category",
+          "model_type": "VARCHAR(80)",
+          "database_type": "VARCHAR(80)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "unit",
+          "model_type": "VARCHAR(30)",
+          "database_type": "VARCHAR(30)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "pcs",
+          "database_default": null
+        },
+        {
+          "name": "quantity",
+          "model_type": "NUMERIC(14, 3)",
+          "database_type": "NUMERIC(14, 3)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "0",
+          "database_default": null
+        },
+        {
+          "name": "minimum_stock",
+          "model_type": "NUMERIC(14, 3)",
+          "database_type": "NUMERIC(14, 3)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "0",
+          "database_default": null
+        },
+        {
+          "name": "warehouse_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "warehouses.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "bin_shelf",
+          "model_type": "VARCHAR(80)",
+          "database_type": "VARCHAR(80)",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "description",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "created_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "updated_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "archived",
+          "model_type": "BOOLEAN",
+          "database_type": "BOOLEAN",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "False",
+          "database_default": null
+        }
+      ],
+      "foreign_keys": [
+        {
+          "name": null,
+          "constrained_columns": [
+            "warehouse_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "warehouses",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        }
+      ],
+      "database_unique_constraints": [
+        {
+          "name": null,
+          "column_names": [
+            "code"
+          ]
+        }
+      ],
+      "database_indexes": [],
+      "database_checks": [],
+      "model_checks": []
+    },
+    {
+      "name": "inventory_transactions",
+      "description": "Chứng từ nhập/xuất cho tài sản hoặc vật tư, kho và người/trạm nhận.",
+      "columns": [
+        {
+          "name": "recipient_user_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "users.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "recipient_location_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "locations.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "number",
+          "model_type": "VARCHAR(40)",
+          "database_type": "VARCHAR(40)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": true,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "transaction_type",
+          "model_type": "VARCHAR(20)",
+          "database_type": "VARCHAR(20)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "warehouse_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "warehouses.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "asset_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "assets.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "item_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "inventory_items.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "quantity",
+          "model_type": "NUMERIC(14, 3)",
+          "database_type": "NUMERIC(14, 3)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "1",
+          "database_default": null
+        },
+        {
+          "name": "transaction_date",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "source_vendor",
+          "model_type": "VARCHAR(150)",
+          "database_type": "VARCHAR(150)",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "condition",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "performed_by",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "users.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "note",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "created_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "updated_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "archived",
+          "model_type": "BOOLEAN",
+          "database_type": "BOOLEAN",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "False",
+          "database_default": null
+        }
+      ],
+      "foreign_keys": [
+        {
+          "name": null,
+          "constrained_columns": [
+            "warehouse_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "warehouses",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": null,
+          "constrained_columns": [
+            "asset_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "assets",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": null,
+          "constrained_columns": [
+            "item_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "inventory_items",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": null,
+          "constrained_columns": [
+            "performed_by"
+          ],
+          "referred_schema": null,
+          "referred_table": "users",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": null,
+          "constrained_columns": [
+            "recipient_location_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "locations",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": null,
+          "constrained_columns": [
+            "recipient_user_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "users",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        }
+      ],
+      "database_unique_constraints": [
+        {
+          "name": null,
+          "column_names": [
+            "number"
+          ]
+        }
+      ],
+      "database_indexes": [],
+      "database_checks": [],
+      "model_checks": []
+    },
+    {
+      "name": "ip_addresses",
+      "description": "Địa chỉ IP trong subnet, có thể gắn giao diện mạng.",
+      "columns": [
+        {
+          "name": "address",
+          "model_type": "VARCHAR(60)",
+          "database_type": "VARCHAR(60)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": true,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "interface_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "interfaces.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "subnet_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "subnets.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "status_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "master_data.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "description",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "created_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "updated_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "archived",
+          "model_type": "BOOLEAN",
+          "database_type": "BOOLEAN",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "False",
+          "database_default": null
+        }
+      ],
+      "foreign_keys": [
+        {
+          "name": null,
+          "constrained_columns": [
+            "interface_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "interfaces",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": null,
+          "constrained_columns": [
+            "subnet_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "subnets",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": null,
+          "constrained_columns": [
+            "status_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "master_data",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        }
+      ],
+      "database_unique_constraints": [
+        {
+          "name": null,
+          "column_names": [
+            "address"
+          ]
+        }
+      ],
+      "database_indexes": [],
+      "database_checks": [],
+      "model_checks": []
+    },
+    {
+      "name": "location_history",
+      "description": "Lịch sử vị trí; ended_at rỗng nghĩa là vị trí hiện tại.",
+      "columns": [
+        {
+          "name": "asset_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "assets.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "from_location_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "locations.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "location_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "locations.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "technician_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "users.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "reason",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "note",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "ended_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "created_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "updated_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "archived",
+          "model_type": "BOOLEAN",
+          "database_type": "BOOLEAN",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "False",
+          "database_default": null
+        }
+      ],
+      "foreign_keys": [
+        {
+          "name": null,
+          "constrained_columns": [
+            "asset_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "assets",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": null,
+          "constrained_columns": [
+            "from_location_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "locations",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": null,
+          "constrained_columns": [
+            "location_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "locations",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": null,
+          "constrained_columns": [
+            "technician_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "users",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        }
+      ],
+      "database_unique_constraints": [],
+      "database_indexes": [
+        {
+          "name": "uq_current_location",
+          "column_names": [
+            "asset_id"
+          ],
+          "unique": 1,
+          "dialect_options": {
+            "sqlite_where": "ended_at IS NULL"
+          }
+        }
+      ],
+      "database_checks": [],
+      "model_checks": []
+    },
+    {
+      "name": "locations",
+      "description": "Cây vị trí site → team → station; tự liên kết qua parent_id.",
+      "columns": [
+        {
+          "name": "name",
+          "model_type": "VARCHAR(100)",
+          "database_type": "VARCHAR(100)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "kind",
+          "model_type": "VARCHAR(30)",
+          "database_type": "VARCHAR(30)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "parent_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "locations.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "description",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "active",
+          "model_type": "BOOLEAN",
+          "database_type": "BOOLEAN",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "True",
+          "database_default": "1"
+        },
+        {
+          "name": "physical_location",
+          "model_type": "VARCHAR(200)",
+          "database_type": "VARCHAR(200)",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "department",
+          "model_type": "VARCHAR(100)",
+          "database_type": "VARCHAR(100)",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "floor",
+          "model_type": "VARCHAR(80)",
+          "database_type": "VARCHAR(80)",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "area",
+          "model_type": "VARCHAR(80)",
+          "database_type": "VARCHAR(80)",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "photo",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "created_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "updated_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "archived",
+          "model_type": "BOOLEAN",
+          "database_type": "BOOLEAN",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "False",
+          "database_default": null
+        }
+      ],
+      "foreign_keys": [
+        {
+          "name": null,
+          "constrained_columns": [
+            "parent_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "locations",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        }
+      ],
+      "database_unique_constraints": [
+        {
+          "name": null,
+          "column_names": [
+            "parent_id",
+            "name"
+          ]
+        }
+      ],
+      "database_indexes": [],
+      "database_checks": [],
+      "model_checks": []
+    },
+    {
+      "name": "maintenance",
+      "description": "Phiếu bảo trì/sửa chữa; lưu lỗi, chẩn đoán, cách xử lý, linh kiện, kết quả và chi phí.",
+      "columns": [
+        {
+          "name": "number",
+          "model_type": "VARCHAR(40)",
+          "database_type": "VARCHAR(40)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": true,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "asset_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "assets.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "type_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "master_data.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "status_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "master_data.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "problem",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "diagnosis",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "action_taken",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "technician_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "users.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "start_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "due_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "end_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "vendor",
+          "model_type": "VARCHAR(150)",
+          "database_type": "VARCHAR(150)",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "cost",
+          "model_type": "NUMERIC(14, 2)",
+          "database_type": "NUMERIC(14, 2)",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "parts_replaced",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "note",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "previous_status_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "master_data.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "created_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "updated_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "archived",
+          "model_type": "BOOLEAN",
+          "database_type": "BOOLEAN",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "False",
+          "database_default": null
+        }
+      ],
+      "foreign_keys": [
+        {
+          "name": "fk_maintenance_previous_status_id_master_data",
+          "constrained_columns": [
+            "previous_status_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "master_data",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": "fk_maintenance_status_id_master_data",
+          "constrained_columns": [
+            "status_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "master_data",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": "fk_maintenance_type_id_master_data",
+          "constrained_columns": [
+            "type_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "master_data",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": "fk_maintenance_asset_id_assets",
+          "constrained_columns": [
+            "asset_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "assets",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": "fk_maintenance_technician_id_users",
+          "constrained_columns": [
+            "technician_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "users",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        }
+      ],
+      "database_unique_constraints": [
+        {
+          "name": null,
+          "column_names": [
+            "number"
+          ]
+        }
+      ],
+      "database_indexes": [],
+      "database_checks": [],
+      "model_checks": []
+    },
+    {
+      "name": "master_data",
+      "description": "Danh mục dùng chung: trạng thái, loại bảo trì, mức ưu tiên và các nhóm khác.",
+      "columns": [
+        {
+          "name": "group",
+          "model_type": "VARCHAR(60)",
+          "database_type": "VARCHAR(60)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "code",
+          "model_type": "VARCHAR(60)",
+          "database_type": "VARCHAR(60)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "name",
+          "model_type": "VARCHAR(100)",
+          "database_type": "VARCHAR(100)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "color",
+          "model_type": "VARCHAR(30)",
+          "database_type": "VARCHAR(30)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "slate",
+          "database_default": null
+        },
+        {
+          "name": "id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "created_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "updated_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "archived",
+          "model_type": "BOOLEAN",
+          "database_type": "BOOLEAN",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "False",
+          "database_default": null
+        }
+      ],
+      "foreign_keys": [],
+      "database_unique_constraints": [
+        {
+          "name": null,
+          "column_names": [
+            "group",
+            "code"
+          ]
+        }
+      ],
+      "database_indexes": [],
+      "database_checks": [],
+      "model_checks": []
+    },
+    {
+      "name": "subnets",
+      "description": "Dải IP thuộc VLAN và cơ sở.",
+      "columns": [
+        {
+          "name": "cidr",
+          "model_type": "VARCHAR(60)",
+          "database_type": "VARCHAR(60)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": true,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "gateway",
+          "model_type": "VARCHAR(60)",
+          "database_type": "VARCHAR(60)",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "dns",
+          "model_type": "VARCHAR(200)",
+          "database_type": "VARCHAR(200)",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "vlan_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "vlans.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "site_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "locations.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "description",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "created_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "updated_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "archived",
+          "model_type": "BOOLEAN",
+          "database_type": "BOOLEAN",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "False",
+          "database_default": null
+        }
+      ],
+      "foreign_keys": [
+        {
+          "name": null,
+          "constrained_columns": [
+            "vlan_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "vlans",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": null,
+          "constrained_columns": [
+            "site_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "locations",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        }
+      ],
+      "database_unique_constraints": [
+        {
+          "name": null,
+          "column_names": [
+            "cidr"
+          ]
+        }
+      ],
+      "database_indexes": [],
+      "database_checks": [],
+      "model_checks": []
+    },
+    {
+      "name": "switch_ports",
+      "description": "Cổng switch, VLAN và tài sản kết nối.",
+      "columns": [
+        {
+          "name": "switch_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "assets.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "name",
+          "model_type": "VARCHAR(40)",
+          "database_type": "VARCHAR(40)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "mode_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "master_data.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "native_vlan_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "vlans.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "tagged_vlans",
+          "model_type": "JSON",
+          "database_type": "JSON",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: list()",
+          "database_default": null
+        },
+        {
+          "name": "connected_asset_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "assets.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "status_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "master_data.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "created_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "updated_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "archived",
+          "model_type": "BOOLEAN",
+          "database_type": "BOOLEAN",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "False",
+          "database_default": null
+        }
+      ],
+      "foreign_keys": [
+        {
+          "name": null,
+          "constrained_columns": [
+            "switch_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "assets",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": null,
+          "constrained_columns": [
+            "mode_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "master_data",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": null,
+          "constrained_columns": [
+            "native_vlan_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "vlans",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": null,
+          "constrained_columns": [
+            "connected_asset_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "assets",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": null,
+          "constrained_columns": [
+            "status_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "master_data",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        }
+      ],
+      "database_unique_constraints": [
+        {
+          "name": null,
+          "column_names": [
+            "switch_id",
+            "name"
+          ]
+        },
+        {
+          "name": null,
+          "column_names": [
+            "connected_asset_id"
+          ]
+        }
+      ],
+      "database_indexes": [],
+      "database_checks": [],
+      "model_checks": []
+    },
+    {
+      "name": "ticket_activities",
+      "description": "Trao đổi và hoạt động xử lý phiếu hỗ trợ.",
+      "columns": [
+        {
+          "name": "ticket_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "tickets.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "user_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "users.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "kind",
+          "model_type": "VARCHAR(40)",
+          "database_type": "VARCHAR(40)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "body",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "internal",
+          "model_type": "BOOLEAN",
+          "database_type": "BOOLEAN",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "False",
+          "database_default": null
+        },
+        {
+          "name": "id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "created_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "updated_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "archived",
+          "model_type": "BOOLEAN",
+          "database_type": "BOOLEAN",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "False",
+          "database_default": null
+        }
+      ],
+      "foreign_keys": [
+        {
+          "name": null,
+          "constrained_columns": [
+            "ticket_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "tickets",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": null,
+          "constrained_columns": [
+            "user_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "users",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        }
+      ],
+      "database_unique_constraints": [],
+      "database_indexes": [],
+      "database_checks": [],
+      "model_checks": []
+    },
+    {
+      "name": "ticket_articles",
+      "description": "Bảng nối nhiều-nhiều giữa phiếu hỗ trợ và bài kiến thức.",
+      "columns": [
+        {
+          "name": "ticket_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "tickets.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "article_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "articles.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "created_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "updated_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "archived",
+          "model_type": "BOOLEAN",
+          "database_type": "BOOLEAN",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "False",
+          "database_default": null
+        }
+      ],
+      "foreign_keys": [
+        {
+          "name": null,
+          "constrained_columns": [
+            "ticket_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "tickets",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": null,
+          "constrained_columns": [
+            "article_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "articles",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        }
+      ],
+      "database_unique_constraints": [
+        {
+          "name": null,
+          "column_names": [
+            "ticket_id",
+            "article_id"
+          ]
+        }
+      ],
+      "database_indexes": [],
+      "database_checks": [],
+      "model_checks": []
+    },
+    {
+      "name": "tickets",
+      "description": "Phiếu hỗ trợ; model/API còn tồn tại dù module Ticket không còn trong UI chính.",
+      "columns": [
+        {
+          "name": "number",
+          "model_type": "VARCHAR(40)",
+          "database_type": "VARCHAR(40)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": true,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "title",
+          "model_type": "VARCHAR(200)",
+          "database_type": "VARCHAR(200)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "description",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "category_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "master_data.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "subcategory",
+          "model_type": "VARCHAR(100)",
+          "database_type": "VARCHAR(100)",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "priority_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "master_data.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "status_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "master_data.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "asset_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "assets.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "location_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "locations.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "reporter_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "users.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "technician_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "users.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "due_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "resolved_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "created_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "updated_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "archived",
+          "model_type": "BOOLEAN",
+          "database_type": "BOOLEAN",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "False",
+          "database_default": null
+        }
+      ],
+      "foreign_keys": [
+        {
+          "name": null,
+          "constrained_columns": [
+            "category_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "master_data",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": null,
+          "constrained_columns": [
+            "priority_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "master_data",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": null,
+          "constrained_columns": [
+            "status_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "master_data",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": null,
+          "constrained_columns": [
+            "asset_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "assets",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": null,
+          "constrained_columns": [
+            "location_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "locations",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": null,
+          "constrained_columns": [
+            "reporter_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "users",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        },
+        {
+          "name": null,
+          "constrained_columns": [
+            "technician_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "users",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        }
+      ],
+      "database_unique_constraints": [
+        {
+          "name": null,
+          "column_names": [
+            "number"
+          ]
+        }
+      ],
+      "database_indexes": [],
+      "database_checks": [],
+      "model_checks": []
+    },
+    {
+      "name": "users",
+      "description": "Người dùng, vai trò và người thực hiện thao tác.",
+      "columns": [
+        {
+          "name": "username",
+          "model_type": "VARCHAR(100)",
+          "database_type": "VARCHAR(100)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": true,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "name",
+          "model_type": "VARCHAR(150)",
+          "database_type": "VARCHAR(150)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "password_hash",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "role",
+          "model_type": "VARCHAR(30)",
+          "database_type": "VARCHAR(30)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "VIEWER",
+          "database_default": null
+        },
+        {
+          "name": "department",
+          "model_type": "VARCHAR(100)",
+          "database_type": "VARCHAR(100)",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "created_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "updated_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "archived",
+          "model_type": "BOOLEAN",
+          "database_type": "BOOLEAN",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "False",
+          "database_default": null
+        }
+      ],
+      "foreign_keys": [],
+      "database_unique_constraints": [
+        {
+          "name": null,
+          "column_names": [
+            "username"
+          ]
+        }
+      ],
+      "database_indexes": [],
+      "database_checks": [],
+      "model_checks": []
+    },
+    {
+      "name": "vlans",
+      "description": "VLAN theo cơ sở; tag duy nhất trong cùng site.",
+      "columns": [
+        {
+          "name": "tag",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "name",
+          "model_type": "VARCHAR(100)",
+          "database_type": "VARCHAR(100)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "site_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "locations.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "description",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "created_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "updated_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "archived",
+          "model_type": "BOOLEAN",
+          "database_type": "BOOLEAN",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "False",
+          "database_default": null
+        }
+      ],
+      "foreign_keys": [
+        {
+          "name": null,
+          "constrained_columns": [
+            "site_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "locations",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        }
+      ],
+      "database_unique_constraints": [
+        {
+          "name": null,
+          "column_names": [
+            "site_id",
+            "tag"
+          ]
+        }
+      ],
+      "database_indexes": [],
+      "database_checks": [],
+      "model_checks": []
+    },
+    {
+      "name": "warehouses",
+      "description": "Kho tiếp nhận, liên kết tới một vị trí.",
+      "columns": [
+        {
+          "name": "code",
+          "model_type": "VARCHAR(40)",
+          "database_type": "VARCHAR(40)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": true,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "name",
+          "model_type": "VARCHAR(120)",
+          "database_type": "VARCHAR(120)",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "location_id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [
+            "locations.id"
+          ],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "description",
+          "model_type": "TEXT",
+          "database_type": "TEXT",
+          "nullable": true,
+          "database_nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "id",
+          "model_type": "INTEGER",
+          "database_type": "INTEGER",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "references": [],
+          "model_default": null,
+          "database_default": null
+        },
+        {
+          "name": "created_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "updated_at",
+          "model_type": "DATETIME",
+          "database_type": "DATETIME",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "Python: now()",
+          "database_default": null
+        },
+        {
+          "name": "archived",
+          "model_type": "BOOLEAN",
+          "database_type": "BOOLEAN",
+          "nullable": false,
+          "database_nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "references": [],
+          "model_default": "False",
+          "database_default": null
+        }
+      ],
+      "foreign_keys": [
+        {
+          "name": null,
+          "constrained_columns": [
+            "location_id"
+          ],
+          "referred_schema": null,
+          "referred_table": "locations",
+          "referred_columns": [
+            "id"
+          ],
+          "options": {}
+        }
+      ],
+      "database_unique_constraints": [
+        {
+          "name": null,
+          "column_names": [
+            "code"
+          ]
+        }
+      ],
+      "database_indexes": [],
+      "database_checks": [],
+      "model_checks": []
+    }
+  ],
+  "drift": [],
+  "database_only_tables": [
+    "alembic_version"
+  ],
+  "database_triggers": [
+    {
+      "name": "ck_asset_status_insert",
+      "sql": "CREATE TRIGGER ck_asset_status_insert BEFORE INSERT ON assets WHEN NEW.current_status NOT IN ('AVAILABLE','IN_USE','MAINTENANCE','RETIRED','DISPOSED') OR NEW.current_status IS NULL BEGIN SELECT RAISE(ABORT, 'Invalid asset status'); END"
+    },
+    {
+      "name": "ck_asset_status_update",
+      "sql": "CREATE TRIGGER ck_asset_status_update BEFORE UPDATE ON assets WHEN NEW.current_status NOT IN ('AVAILABLE','IN_USE','MAINTENANCE','RETIRED','DISPOSED') OR NEW.current_status IS NULL BEGIN SELECT RAISE(ABORT, 'Invalid asset status'); END"
+    }
+  ]
+}

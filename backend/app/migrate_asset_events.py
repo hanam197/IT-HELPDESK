@@ -1,7 +1,7 @@
 """One-time conversion of legacy records; original operation/audit rows remain intact."""
 from copy import deepcopy
 from datetime import timezone
-from sqlalchemy import select
+from sqlalchemy import select, Table, MetaData
 from . import models as m
 from .asset_events import EVENT_TYPES, STATUS_CODES, normalize_status, location_name
 
@@ -10,7 +10,7 @@ def upgrade_data(db):
     statuses={r.code:r for r in db.scalars(select(m.MasterData).where(m.MasterData.group=='asset_status'))}
     for status,code in STATUS_CODES.items():
         if code not in statuses:
-            row=m.MasterData(group='asset_status',code=code,name={'AVAILABLE':'Available','IN_USE':'In Use','MAINTENANCE':'Maintenance','RETIRED':'Retired'}[status]);db.add(row);db.flush();statuses[code]=row
+            row=m.MasterData(group='asset_status',code=code,name={'AVAILABLE':'Available','IN_USE':'In Use','MAINTENANCE':'Maintenance','RETIRED':'Retired','DISPOSED':'Disposed'}[status]);db.add(row);db.flush();statuses[code]=row
     codes={r.id:normalize_status(r.code) for r in statuses.values()}
     def loc(id): return {'id':id,'name':location_name(db,id)} if id else None
     def person(id):
@@ -26,7 +26,7 @@ def upgrade_data(db):
         asset.current_location_id=current_loc.location_id if current_loc else None
         asset.current_assignee_id=current_ass.user_id if current_ass else None
         asset.current_status=codes.get(asset.status_id,'AVAILABLE')
-        if asset.current_assignee_id and asset.current_status not in {'MAINTENANCE','RETIRED'}: asset.current_status='IN_USE'
+        if asset.current_assignee_id and asset.current_status not in {'MAINTENANCE','RETIRED','DISPOSED'}: asset.current_status='IN_USE'
         asset.status_id=statuses[STATUS_CODES[asset.current_status]].id
         if db.scalar(select(m.AssetOperation.id).where(m.AssetOperation.asset_id==asset.id,m.AssetOperation.operation_type.in_(EVENT_TYPES))): continue
         stock=list(db.scalars(select(m.InventoryTransaction).where(m.InventoryTransaction.asset_id==asset.id).order_by(m.InventoryTransaction.transaction_date,m.InventoryTransaction.id)))
@@ -98,8 +98,10 @@ def upgrade_data(db):
             if kind=='REASSIGNED':
                 row.from_entity_type='USER';row.from_entity_id=(before.get('current_assignee') or {}).get('id');row.to_entity_type='USER';row.to_entity_id=(after.get('current_assignee') or {}).get('id')
             db.add(row)
-    for maintenance in db.scalars(select(m.Maintenance)):
-        if maintenance.previous_status_id: maintenance.previous_status_id=statuses[STATUS_CODES[codes.get(maintenance.previous_status_id,'AVAILABLE')]].id
+    maintenance_table=Table('maintenance',MetaData(),autoload_with=db.connection())
+    for maintenance in db.execute(select(maintenance_table.c.id,maintenance_table.c.previous_status_id)):
+        if maintenance.previous_status_id:
+            db.execute(maintenance_table.update().where(maintenance_table.c.id==maintenance.id).values(previous_status_id=statuses[STATUS_CODES[codes.get(maintenance.previous_status_id,'AVAILABLE')]].id))
     for code,row in statuses.items():
         row.archived=code not in STATUS_CODES.values()
     db.flush()

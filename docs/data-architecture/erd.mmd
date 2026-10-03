@@ -1,0 +1,390 @@
+erDiagram
+    articles {
+        VARCHAR_40 number UK
+        VARCHAR_200 title
+        INTEGER category_id FK
+        TEXT summary
+        TEXT problem
+        TEXT symptoms
+        TEXT cause
+        TEXT resolution
+        TEXT commands
+        TEXT notes
+        TEXT tags
+        INTEGER author_id FK
+        INTEGER status_id FK
+        INTEGER id PK
+        DATETIME created_at
+        DATETIME updated_at
+        BOOLEAN archived
+    }
+    asset_operations {
+        JSON before_state
+        JSON after_state
+        VARCHAR_120 source_ref UK
+        VARCHAR_40 number UK
+        INTEGER asset_id FK
+        VARCHAR_30 operation_type
+        VARCHAR_30 from_entity_type
+        INTEGER from_entity_id
+        VARCHAR_30 to_entity_type
+        INTEGER to_entity_id
+        DATETIME operation_date
+        TEXT condition_before
+        TEXT condition_after
+        INTEGER performed_by FK
+        TEXT reason
+        TEXT note
+        INTEGER id PK
+        DATETIME created_at
+        DATETIME updated_at
+        BOOLEAN archived
+    }
+    asset_types {
+        VARCHAR_100 name UK
+        VARCHAR_20 prefix
+        BOOLEAN track_serial
+        BOOLEAN track_location
+        BOOLEAN allow_assignment
+        BOOLEAN allow_station
+        BOOLEAN track_network
+        BOOLEAN allow_ticket
+        BOOLEAN track_maintenance
+        BOOLEAN has_ports
+        INTEGER id PK
+        DATETIME created_at
+        DATETIME updated_at
+        BOOLEAN archived
+    }
+    assets {
+        INTEGER warehouse_id FK
+        VARCHAR_20 current_status
+        INTEGER current_location_id FK
+        INTEGER current_assignee_id FK
+        VARCHAR_40 code UK
+        VARCHAR_150 name
+        INTEGER type_id FK
+        INTEGER status_id FK
+        VARCHAR_100 brand
+        VARCHAR_100 model
+        VARCHAR_150 serial UK
+        DATE received_date
+        DATE handover_date
+        DATETIME purchase_date
+        DATETIME warranty_expiry
+        VARCHAR_150 vendor
+        NUMERIC_14__2 cost
+        TEXT description
+        TEXT notes
+        TEXT photo
+        INTEGER id PK
+        DATETIME created_at
+        DATETIME updated_at
+        BOOLEAN archived
+    }
+    assignments {
+        INTEGER asset_id FK
+        INTEGER user_id FK
+        VARCHAR_100 department
+        INTEGER assigned_by FK
+        DATETIME expected_return
+        DATETIME returned_at
+        TEXT condition_out
+        TEXT condition_in
+        TEXT note
+        INTEGER id PK
+        DATETIME created_at
+        DATETIME updated_at
+        BOOLEAN archived
+    }
+    attachments {
+        INTEGER ticket_id FK
+        INTEGER user_id FK
+        VARCHAR_255 filename
+        VARCHAR_100 storage_key UK
+        INTEGER id PK
+        DATETIME created_at
+        DATETIME updated_at
+        BOOLEAN archived
+    }
+    audit_logs {
+        INTEGER id PK
+        INTEGER user_id FK
+        VARCHAR_80 action
+        VARCHAR_80 object_type
+        INTEGER object_id
+        JSON old_value
+        JSON new_value
+        DATETIME created_at
+    }
+    counters {
+        VARCHAR_40 key PK
+        INTEGER value
+    }
+    interfaces {
+        INTEGER asset_id FK
+        VARCHAR_100 name
+        VARCHAR_17 mac UK
+        VARCHAR_150 hostname
+        INTEGER id PK
+        DATETIME created_at
+        DATETIME updated_at
+        BOOLEAN archived
+    }
+    inventory_items {
+        VARCHAR_40 code UK
+        VARCHAR_150 name
+        VARCHAR_80 category
+        VARCHAR_30 unit
+        NUMERIC_14__3 quantity
+        NUMERIC_14__3 minimum_stock
+        INTEGER warehouse_id FK
+        VARCHAR_80 bin_shelf
+        TEXT description
+        INTEGER id PK
+        DATETIME created_at
+        DATETIME updated_at
+        BOOLEAN archived
+    }
+    inventory_transactions {
+        INTEGER recipient_user_id FK
+        INTEGER recipient_location_id FK
+        VARCHAR_40 number UK
+        VARCHAR_20 transaction_type
+        INTEGER warehouse_id FK
+        INTEGER asset_id FK
+        INTEGER item_id FK
+        NUMERIC_14__3 quantity
+        DATETIME transaction_date
+        VARCHAR_150 source_vendor
+        TEXT condition
+        INTEGER performed_by FK
+        TEXT note
+        INTEGER id PK
+        DATETIME created_at
+        DATETIME updated_at
+        BOOLEAN archived
+    }
+    ip_addresses {
+        VARCHAR_60 address UK
+        INTEGER interface_id FK
+        INTEGER subnet_id FK
+        INTEGER status_id FK
+        TEXT description
+        INTEGER id PK
+        DATETIME created_at
+        DATETIME updated_at
+        BOOLEAN archived
+    }
+    location_history {
+        INTEGER asset_id FK
+        INTEGER from_location_id FK
+        INTEGER location_id FK
+        INTEGER technician_id FK
+        TEXT reason
+        TEXT note
+        DATETIME ended_at
+        INTEGER id PK
+        DATETIME created_at
+        DATETIME updated_at
+        BOOLEAN archived
+    }
+    locations {
+        VARCHAR_100 name
+        VARCHAR_30 kind
+        INTEGER parent_id FK
+        TEXT description
+        BOOLEAN active
+        VARCHAR_200 physical_location
+        VARCHAR_100 department
+        VARCHAR_80 floor
+        VARCHAR_80 area
+        TEXT photo
+        INTEGER id PK
+        DATETIME created_at
+        DATETIME updated_at
+        BOOLEAN archived
+    }
+    maintenance {
+        VARCHAR_40 number UK
+        INTEGER asset_id FK
+        INTEGER type_id FK
+        INTEGER status_id FK
+        TEXT problem
+        TEXT diagnosis
+        TEXT action_taken
+        INTEGER technician_id FK
+        DATETIME start_at
+        DATETIME due_at
+        DATETIME end_at
+        VARCHAR_150 vendor
+        NUMERIC_14__2 cost
+        TEXT parts_replaced
+        TEXT note
+        INTEGER previous_status_id FK
+        INTEGER id PK
+        DATETIME created_at
+        DATETIME updated_at
+        BOOLEAN archived
+    }
+    master_data {
+        VARCHAR_60 group
+        VARCHAR_60 code
+        VARCHAR_100 name
+        VARCHAR_30 color
+        INTEGER id PK
+        DATETIME created_at
+        DATETIME updated_at
+        BOOLEAN archived
+    }
+    subnets {
+        VARCHAR_60 cidr UK
+        VARCHAR_60 gateway
+        VARCHAR_200 dns
+        INTEGER vlan_id FK
+        INTEGER site_id FK
+        TEXT description
+        INTEGER id PK
+        DATETIME created_at
+        DATETIME updated_at
+        BOOLEAN archived
+    }
+    switch_ports {
+        INTEGER switch_id FK
+        VARCHAR_40 name
+        INTEGER mode_id FK
+        INTEGER native_vlan_id FK
+        JSON tagged_vlans
+        INTEGER connected_asset_id FK
+        INTEGER status_id FK
+        INTEGER id PK
+        DATETIME created_at
+        DATETIME updated_at
+        BOOLEAN archived
+    }
+    ticket_activities {
+        INTEGER ticket_id FK
+        INTEGER user_id FK
+        VARCHAR_40 kind
+        TEXT body
+        BOOLEAN internal
+        INTEGER id PK
+        DATETIME created_at
+        DATETIME updated_at
+        BOOLEAN archived
+    }
+    ticket_articles {
+        INTEGER ticket_id FK
+        INTEGER article_id FK
+        INTEGER id PK
+        DATETIME created_at
+        DATETIME updated_at
+        BOOLEAN archived
+    }
+    tickets {
+        VARCHAR_40 number UK
+        VARCHAR_200 title
+        TEXT description
+        INTEGER category_id FK
+        VARCHAR_100 subcategory
+        INTEGER priority_id FK
+        INTEGER status_id FK
+        INTEGER asset_id FK
+        INTEGER location_id FK
+        INTEGER reporter_id FK
+        INTEGER technician_id FK
+        DATETIME due_at
+        DATETIME resolved_at
+        INTEGER id PK
+        DATETIME created_at
+        DATETIME updated_at
+        BOOLEAN archived
+    }
+    users {
+        VARCHAR_100 username UK
+        VARCHAR_150 name
+        TEXT password_hash
+        VARCHAR_30 role
+        VARCHAR_100 department
+        INTEGER id PK
+        DATETIME created_at
+        DATETIME updated_at
+        BOOLEAN archived
+    }
+    vlans {
+        INTEGER tag
+        VARCHAR_100 name
+        INTEGER site_id FK
+        TEXT description
+        INTEGER id PK
+        DATETIME created_at
+        DATETIME updated_at
+        BOOLEAN archived
+    }
+    warehouses {
+        VARCHAR_40 code UK
+        VARCHAR_120 name
+        INTEGER location_id FK
+        TEXT description
+        INTEGER id PK
+        DATETIME created_at
+        DATETIME updated_at
+        BOOLEAN archived
+    }
+    master_data ||--o{ articles : "category_id"
+    users ||--o{ articles : "author_id"
+    master_data ||--o{ articles : "status_id"
+    assets ||--o{ asset_operations : "asset_id"
+    users ||--o{ asset_operations : "performed_by"
+    warehouses |o--o{ assets : "warehouse_id"
+    locations |o--o{ assets : "current_location_id"
+    users |o--o{ assets : "current_assignee_id"
+    asset_types ||--o{ assets : "type_id"
+    master_data ||--o{ assets : "status_id"
+    assets ||--o{ assignments : "asset_id"
+    users ||--o{ assignments : "user_id"
+    users ||--o{ assignments : "assigned_by"
+    tickets ||--o{ attachments : "ticket_id"
+    users ||--o{ attachments : "user_id"
+    users |o--o{ audit_logs : "user_id"
+    assets ||--o{ interfaces : "asset_id"
+    warehouses ||--o{ inventory_items : "warehouse_id"
+    users |o--o{ inventory_transactions : "recipient_user_id"
+    locations |o--o{ inventory_transactions : "recipient_location_id"
+    warehouses ||--o{ inventory_transactions : "warehouse_id"
+    assets |o--o{ inventory_transactions : "asset_id"
+    inventory_items |o--o{ inventory_transactions : "item_id"
+    users ||--o{ inventory_transactions : "performed_by"
+    interfaces |o--o{ ip_addresses : "interface_id"
+    subnets ||--o{ ip_addresses : "subnet_id"
+    master_data ||--o{ ip_addresses : "status_id"
+    assets ||--o{ location_history : "asset_id"
+    locations |o--o{ location_history : "from_location_id"
+    locations ||--o{ location_history : "location_id"
+    users ||--o{ location_history : "technician_id"
+    locations |o--o{ locations : "parent_id"
+    assets ||--o{ maintenance : "asset_id"
+    master_data ||--o{ maintenance : "type_id"
+    master_data ||--o{ maintenance : "status_id"
+    users ||--o{ maintenance : "technician_id"
+    master_data |o--o{ maintenance : "previous_status_id"
+    vlans ||--o{ subnets : "vlan_id"
+    locations ||--o{ subnets : "site_id"
+    assets ||--o{ switch_ports : "switch_id"
+    master_data ||--o{ switch_ports : "mode_id"
+    vlans |o--o{ switch_ports : "native_vlan_id"
+    assets |o--o| switch_ports : "connected_asset_id"
+    master_data ||--o{ switch_ports : "status_id"
+    tickets ||--o{ ticket_activities : "ticket_id"
+    users ||--o{ ticket_activities : "user_id"
+    tickets ||--o{ ticket_articles : "ticket_id"
+    articles ||--o{ ticket_articles : "article_id"
+    master_data ||--o{ tickets : "category_id"
+    master_data ||--o{ tickets : "priority_id"
+    master_data ||--o{ tickets : "status_id"
+    assets |o--o{ tickets : "asset_id"
+    locations |o--o{ tickets : "location_id"
+    users ||--o{ tickets : "reporter_id"
+    users |o--o{ tickets : "technician_id"
+    locations ||--o{ vlans : "site_id"
+    locations ||--o{ warehouses : "location_id"

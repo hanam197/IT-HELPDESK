@@ -16,9 +16,16 @@ def asset_lifecycle(db,asset,data,enrich):
             return value
         changes=[{'field':key,'before':display(key,before.get(key)),'after':display(key,after.get(key))} for key in dict.fromkeys([*before,*after]) if key!='actor_unknown' and before.get(key)!=after.get(key)]
         actor=db.get(m.User,row.performed_by)
+        stock=None
+        if row.source_ref and row.source_ref.startswith('stock:'):
+            try: transaction=db.get(m.InventoryTransaction,int(row.source_ref.split(':',1)[1]))
+            except ValueError: transaction=None
+            if transaction and transaction.asset_id==asset.id:
+                stock={key:getattr(transaction,key) for key in ('source_vendor','condition','note')}
+        asset_type=db.get(m.AssetType,after['type_id']) if after.get('type_id') else None
         events.append({'id':row.id,'reference':row.number,'event_type':row.operation_type,'category':row.operation_type,'title':EVENT_LABELS[row.operation_type],
                        'occurred_at':(row.operation_date.replace(tzinfo=timezone.utc) if row.operation_date.tzinfo is None else row.operation_date).isoformat(),'performed_by':actor.name if actor and not after.get('actor_unknown') else None,'description':row.reason or row.note,
-                       'before_state':before,'after_state':after,'changes':changes,
+                       'before_state':before,'after_state':after,'changes':changes,'stock':stock,'asset_type_label':asset_type.name if asset_type else None,
                        'resource':'maintenance' if 'maintenance' in after else None,'record_id':(after.get('maintenance') or {}).get('id')})
     data['lifecycle']=events
     received=[e for e in events if e['event_type']=='RECEIVED']; issued=[e for e in events if e['event_type'] in {'ISSUED','REASSIGNED'}]

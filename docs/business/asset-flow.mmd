@@ -1,0 +1,10 @@
+flowchart LR
+    A[AVAILABLE] -->|Cấp phát| U[IN_USE]
+    U -->|Dừng thiết bị để sửa| M[MAINTENANCE]
+    M -->|Đã khắc phục| A
+    U -->|Ngừng sử dụng| R[RETIRED]
+    M -->|Không khắc phục được hoặc ngừng sử dụng| R
+    R -->|Thanh lý| D[DISPOSED]
+    U -->|Thu hồi| A
+    A -->|Dừng thiết bị để sửa trong kho| M
+    A -->|Ngừng sử dụng| R

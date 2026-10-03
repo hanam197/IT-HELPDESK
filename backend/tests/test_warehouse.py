@@ -33,7 +33,7 @@ def test_asset_receipt_issue_and_return(client,meta):
     detail=client.get(f"/api/assets/{asset['id']}/detail").json()
     assert detail['warehouse_id'] is None and detail['location_id']==station['id']
     assert detail['assignment_user_id']==4 and detail['handover_date']==when[:10]
-    returned=client.post('/api/inventory/transactions',json={'transaction_type':'RECEIVE','warehouse_id':warehouse['id'],'asset_id':asset['id'],'condition':'Good on return'})
+    returned=client.post('/api/inventory/transactions',json={'transaction_type':'RECEIVE','return_status':'AVAILABLE','warehouse_id':warehouse['id'],'asset_id':asset['id'],'condition':'Good on return'})
     assert returned.status_code==201,returned.text
     detail=client.get(f"/api/assets/{asset['id']}/detail").json()
     assert detail['warehouse_id']==warehouse['id'] and detail['assignment_id'] is None
@@ -43,12 +43,12 @@ def test_asset_receipt_issue_and_return(client,meta):
     assert [r['transaction_type'] for r in history['items']]==['RECEIVE','ISSUE','RECEIVE']
 
 
-def test_user_only_issue_closes_warehouse_location(client,meta):
+def test_user_only_issue_preserves_last_known_location(client,meta):
     asset=receive(client,meta,'STOCK-USER-ONLY')
     result=client.post('/api/inventory/transactions',json={'transaction_type':'ISSUE','warehouse_id':asset['warehouse_id'],'asset_id':asset['id'],'recipient_user_id':4})
     assert result.status_code==201,result.text
     current=client.get(f"/api/assets/{asset['id']}").json()
-    assert current['warehouse_id'] is None and current['location_id'] is None
+    assert current['warehouse_id'] is None and current['location_id']==asset['location_id']
     assert current['assignment_user_id']==4
 
 
@@ -130,20 +130,18 @@ def test_complete_asset_lifecycle_and_retirement(client,meta):
     detail=client.get(f'/api/assets/{id}/detail').json()
     assert detail['handed_over_by']==actor
     assert detail['assigned_to']!=detail['handed_over_by']
-    assert client.post(f'/api/assets/{id}/retire',json={'reason':'End of service'}).status_code==422
-    assert client.post(f'/api/assets/{id}/return',json={'condition_in':'Good, returned'}).status_code==200
+    assert client.post(f'/api/assets/{id}/return',json={'warehouse_id':meta['warehouses'][0]['id'],'return_status':'AVAILABLE','condition_in':'Good, returned'}).status_code==200
     station=next(r for r in meta['locations'] if r['name']=='DG-01BD')
-    assert client.post(f'/api/assets/{id}/move',json={'location_id':station['id'],'reason':'Service area'}).status_code==200
+    assert client.post(f'/api/assets/{id}/move',json={'location_id':station['id'],'reason':'Service area'}).status_code==422
     mid=lambda group,code:next(r['id'] for r in meta['master-data'] if r['group']==group and r['code']==code)
-    maintenance=client.post('/api/maintenance',json={'asset_id':id,'type_id':mid('maintenance_type','inspection'),'status_id':mid('maintenance_status','open'),'technician_id':1,'problem':'Lifecycle inspection'})
+    maintenance=client.post('/api/maintenance',json={'asset_id':id,'type_id':mid('maintenance_type','other'),'status_id':mid('maintenance_status','open'),'technician_id':1,'problem':'Lifecycle inspection'})
     assert maintenance.status_code==201,maintenance.text
-    assert client.post(f'/api/assets/{id}/retire',json={'reason':'End of service'}).status_code==422
-    assert client.patch('/api/maintenance/'+str(maintenance.json()['id']),json={'status_id':mid('maintenance_status','completed'),'action_taken':'Inspected and completed'}).status_code==200
+    assert client.patch('/api/maintenance/'+str(maintenance.json()['id']),json={'status_id':mid('maintenance_status','completed'),'resolution_outcome':'FIXED','diagnosis':'Đã xác định nguyên nhân','action_taken':'Inspected and completed'}).status_code==200
     assert client.post(f'/api/assets/{id}/retire',json={'reason':'End of service'}).status_code==200
     detail=client.get(f'/api/assets/{id}/detail').json()
-    assert detail['current_status']=='RETIRED' and detail['warehouse_id'] is None and detail['location_id'] is None
+    assert detail['current_status']=='RETIRED' and detail['warehouse_id']==asset['warehouse_id'] and detail['location_id']==asset['location_id']
     events=detail['lifecycle']
-    assert [e['event_type'] for e in events]==['RETIRED','MAINTENANCE','MAINTENANCE','MOVED','RETURNED','ISSUED','RECEIVED']
+    assert [e['event_type'] for e in events]==['RETIRED','MAINTENANCE','MAINTENANCE','RETURNED','ISSUED','RECEIVED']
     assert next(e for e in events if e['event_type']=='RETURNED')['performed_by']==actor
     assert next(e for e in events if e['event_type']=='RETIRED')['description']=='End of service'
     assert [e['occurred_at'] for e in events]==sorted([e['occurred_at'] for e in events],reverse=True)
@@ -151,10 +149,82 @@ def test_complete_asset_lifecycle_and_retirement(client,meta):
     assert client.post(f'/api/assets/{id}/retire',json={'reason':'Duplicate retirement'}).status_code==422
 
 
-def test_retiring_stock_removes_it_from_inventory_and_requires_permission(client,meta):
+def test_retiring_stock_keeps_warehouse_location_and_requires_permission(client,meta):
     asset=receive(client,meta,'RETIRE-STOCK')
     with TestClient(app,headers={'X-Requested-With':'Helpdesk'}) as viewer:
         assert viewer.post('/api/auth/login',json={'username':'viewer','password':'TestPassword2026!'}).status_code==200
         assert viewer.post(f"/api/assets/{asset['id']}/retire",json={'reason':'End of service'}).status_code==403
     assert client.post(f"/api/assets/{asset['id']}/retire",json={'reason':'End of service'}).status_code==200
-    assert client.get('/api/assets',params={'view':'in-stock','q':asset['serial']}).json()['total']==0
+    assert client.get('/api/assets',params={'view':'in-stock','q':asset['serial']}).json()['total']==1
+
+
+def test_return_endpoint_requires_warehouse_and_records_stock(client,meta):
+    asset=receive(client,meta,'UNIFIED-RETURN'); id=asset['id']
+    warehouse=meta['warehouses'][1]
+    assert client.post('/api/inventory/transactions',json={'transaction_type':'ISSUE','warehouse_id':asset['warehouse_id'],'asset_id':id,'recipient_user_id':4}).status_code==201
+    for payload in [{'condition_in':'Good'}, {'warehouse_id':999999,'condition_in':'Good'}]:
+        assert client.post(f'/api/assets/{id}/return',json=payload).status_code in {404,422}
+        current=client.get(f'/api/assets/{id}/detail').json()
+        assert current['warehouse_id'] is None and current['assignment_user_id']==4
+        assert current['current_status']=='IN_USE'
+    payload={'warehouse_id':warehouse['id'],'return_status':'AVAILABLE','condition_in':'Good','note':'Return to another warehouse'}
+    assert client.post(f'/api/assets/{id}/return',json=payload).status_code==200
+    assert client.post(f'/api/assets/{id}/return',json=payload).status_code==422
+    current=client.get(f'/api/assets/{id}/detail').json()
+    assert current['warehouse_id']==warehouse['id'] and current['location_id']==warehouse['location_id']
+    assert current['assignment_id'] is None and current['current_status']=='AVAILABLE'
+    assert current['assignments'][0]['condition_in']=='Good'
+    assert len([e for e in current['lifecycle'] if e['event_type']=='RETURNED'])==1
+    history=client.get('/api/inventory-transactions',params={'filters':'{"asset_id":'+str(id)+'}'}).json()['items']
+    assert len(history)==3 and history[0]['warehouse_id']==warehouse['id']
+    assert history[0]['transaction_type']=='RECEIVE'
+
+
+def test_return_condition_required_and_repair_blocks_issue(client,meta):
+    asset=receive(client,meta,'RETURN-NEEDS-REPAIR'); id=asset['id']; warehouse=asset['warehouse_id']
+    issue={'transaction_type':'ISSUE','warehouse_id':warehouse,'asset_id':id,'recipient_user_id':4}
+    assert client.post('/api/inventory/transactions',json=issue).status_code==201
+    receipt={'transaction_type':'RECEIVE','warehouse_id':warehouse,'asset_id':id,'condition':'Màn hình hỏng'}
+    for extra in [{},{'return_status':'UNKNOWN'},{'return_status':''},{'return_status':'REPAIR_NEEDED'},{'return_status':'BROKEN'},{'return_status':'DAMAGED'},{'return_status':'WAITING_REPAIR'}]:
+        assert client.post('/api/inventory/transactions',json={**receipt,**extra}).status_code==422
+        current=client.get(f'/api/assets/{id}/detail').json()
+        assert current['current_status']=='IN_USE' and current['assignment_user_id']==4 and current['warehouse_id'] is None
+    result=client.post(f'/api/assets/{id}/return',json={'warehouse_id':warehouse,'condition_in':'Màn hình hỏng','return_status':'MAINTENANCE'})
+    assert result.status_code==200,result.text
+    current=client.get(f'/api/assets/{id}/detail').json()
+    assert current['current_status']=='MAINTENANCE' and current['warehouse_id']==warehouse
+    assert current['assignment_id'] is None
+    assert current['lifecycle'][0]['after_state']['current_status']=='MAINTENANCE'
+    assert client.post('/api/inventory/transactions',json=issue).status_code==422
+    mid=lambda group,code:next(r['id'] for r in meta['master-data'] if r['group']==group and r['code']==code)
+    for outcome in ['completed']:
+        repair=client.post('/api/maintenance',json={'asset_id':id,'problem':'Replace screen','technician_id':1,'type_id':mid('maintenance_type','hardware'),'status_id':mid('maintenance_status','open')})
+        assert repair.status_code==201,repair.text
+        assert client.patch('/api/maintenance/'+str(repair.json()['id']),json={'status_id':mid('maintenance_status',outcome),'resolution_outcome':'FIXED','diagnosis':'Đã xác định lỗi','action_taken':'Đã xử lý'}).status_code==200
+        expected='AVAILABLE'
+        assert client.get(f'/api/assets/{id}').json()['current_status']==expected
+    assert client.post('/api/inventory/transactions',json=issue).status_code==201
+
+
+def test_return_uses_allowed_shared_asset_statuses(client,meta):
+    from app.asset_events import STATUS_CODES
+    statuses=meta['asset-statuses']
+    assert {s['id'] for s in statuses}==set(STATUS_CODES)
+    for index,status in enumerate(statuses):
+        if status['id'] in {'IN_USE','DISPOSED'}: continue
+        asset=receive(client,meta,'SHARED-RETURN-'+str(index)); id=asset['id']
+        issue={'transaction_type':'ISSUE','warehouse_id':asset['warehouse_id'],'asset_id':id,'recipient_user_id':4}
+        assert client.post('/api/inventory/transactions',json=issue).status_code==201
+        payload={'warehouse_id':asset['warehouse_id'],'return_status':status['id'],'condition_in':status['name']}
+        if index%2:
+            result=client.post(f'/api/assets/{id}/return',json=payload)
+            assert result.status_code==200,result.text
+        else:
+            result=client.post('/api/inventory/transactions',json={'transaction_type':'RECEIVE','warehouse_id':asset['warehouse_id'],'asset_id':id,'return_status':status['id'],'condition':status['name']})
+            assert result.status_code==201,result.text
+        current=client.get(f'/api/assets/{id}/detail').json()
+        assert current['current_status']==status['id']
+        assert current['warehouse_id']==asset['warehouse_id'] and current['location_id']==meta['warehouses'][0]['location_id']
+        assert current['assignment_id'] is None
+        assert current['lifecycle'][0]['event_type']=='RETURNED'
+        assert current['lifecycle'][0]['after_state']['current_status']==status['id']

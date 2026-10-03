@@ -18,13 +18,13 @@ from openpyxl import Workbook, load_workbook
 from PIL import Image, UnidentifiedImageError
 from .database import get_db, settings
 from . import models as m
-from .schemas import RESOURCES, READ_ONLY, SCHEMAS, Login, Move, Assign, Return, Transfer, Comment, StockMovement, Retire, Reassign
+from .schemas import RESOURCES, READ_ONLY, SCHEMAS, Login, Move, Assign, WarehouseReturn, Transfer, Comment, StockMovement, Retire, Reassign
 from .security import current_user, authorize, passwords, check_login_limit
-from .services import get, serialize, save, audit, activity, move, assign, return_asset, master, next_number, retire_asset, reassign_asset
+from .services import get, serialize, save, audit, activity, move, assign, master, next_number, retire_asset, reassign_asset, dispose_asset, stop_asset_for_maintenance
 
 from .warehouse import receive_new_asset, stock_movement
 from .lifecycle import asset_lifecycle
-from .asset_events import STATUS_LABELS
+from .asset_events import STATUS_CODES, STATUS_LABELS, EVENT_TYPES
 from .localization import field_label
 
 app = FastAPI(title='IT Helpdesk & Asset Management', version='1.0.0')
@@ -75,6 +75,8 @@ def metadata(user=Depends(current_user),db=Depends(get_db)):
     for key in ['users','master-data','asset-types','locations','assets','warehouses','inventory-items','vlans','subnets','interfaces','articles']:
         rows=db.scalars(select(RESOURCES[key]).where(RESOURCES[key].archived == False)).all()
         result[key]=[({'id':r.id,'name':r.name,'username':r.username,'department':r.department} if key=='users' else ({**serialize(r),'path':location_path(db,r.id)} if key=='locations' else serialize(r))) for r in rows]
+    statuses={r['code']:r for r in result['master-data'] if r['group']=='asset_status'}
+    result['asset-statuses']=[{'id':state,'name':STATUS_LABELS[state]} for state,code in STATUS_CODES.items() if code in statuses]
     return result
 
 def location_path(db,id):
@@ -97,6 +99,13 @@ def enriched(db,obj):
                 label=getattr(linked,'code',None) or getattr(linked,'name',None) or getattr(linked,'number',None) or getattr(linked,'cidr',None) or str(linked.id)
                 if isinstance(linked,m.MasterData): label=linked.name
                 data[c.name.removesuffix('_id')+'_label']=label
+    if isinstance(obj,m.Maintenance):
+        asset=get(db,m.Asset,obj.asset_id)
+        data['asset_current_status']=asset.current_status
+        data['asset_warehouse_id']=asset.warehouse_id
+        data['issue_category_label']=data.get('type_label')
+        data['status_label']='Hoàn tất' if obj.end_at else 'Mới'
+        data['replacement_assets']=[enriched(db,part) for part_id in (obj.replacement_asset_ids or []) if (part:=db.get(m.Asset,part_id)) is not None]
     if isinstance(obj,m.Location):
         data['photo_url']=f'/api/locations/{obj.id}/photo' if obj.photo else None
     if isinstance(obj,m.InventoryTransaction) and obj.recipient_location_id:
@@ -161,6 +170,10 @@ def query_rows(db,resource,user,q='',filters='{}',view='',location=''):
             if not isinstance(value,int) or isinstance(value,bool): raise HTTPException(422,'Người phụ trách không hợp lệ')
             continue
         if key not in inspect(model).columns or key=='password_hash': raise HTTPException(422,f'Bộ lọc không hợp lệ: {key}')
+        if resource=='assets' and key=='current_status' and value not in STATUS_CODES: raise HTTPException(422,'Trạng thái thiết bị không hợp lệ')
+        if resource=='assets' and key=='status_id':
+            status=db.get(m.MasterData,value) if isinstance(value,int) and not isinstance(value,bool) else None
+            if not status or status.archived or status.group!='asset_status' or status.code not in STATUS_CODES.values(): raise HTTPException(422,'Trạng thái thiết bị không hợp lệ')
         col=getattr(model,key); stmt=stmt.where(col==value)
     if resource=='tickets':
         if view in {'open','overdue'}:
@@ -201,13 +214,13 @@ def dashboard(user=Depends(current_user),db=Depends(get_db)):
     maintenance=[enriched(db,r) for r in db.scalars(select(m.Maintenance).where(m.Maintenance.archived==False))]
     codes={r.id:r.code for r in db.scalars(select(m.MasterData))}
     active=[x for x in maintenance if x['end_at'] is None]
-    stats={'Total assets':len(assets),'Available assets':sum(codes[a['status_id']]=='available' for a in assets),'Active assets':sum(codes[a['status_id']] in {'active','in_use'} for a in assets),'Assigned assets':sum(bool(a['assignment_id']) for a in assets),'Assets in warehouse':sum(bool(a['warehouse_id']) for a in assets),'Assets under repair':sum(codes[a['status_id']] in {'repair','maintenance'} for a in assets),'Retired assets':sum(a['current_status']=='RETIRED' for a in assets),'Low stock items':sum(float(r.quantity)<float(r.minimum_stock) for r in db.scalars(select(m.InventoryItem).where(m.InventoryItem.archived==False))),'Phiếu bảo trì đang mở':len(active)}
+    stats={'Total assets':len(assets),'Available assets':sum(a['current_status']=='AVAILABLE' for a in assets),'Active assets':sum(a['current_status']=='IN_USE' for a in assets),'Assigned assets':sum(bool(a['assignment_id']) for a in assets),'Assets in warehouse':sum(bool(a['warehouse_id']) for a in assets),'Assets under repair':sum(a['current_status']=='MAINTENANCE' for a in assets),'Retired assets':sum(a['current_status']=='RETIRED' for a in assets),'Disposed assets':sum(a['current_status']=='DISPOSED' for a in assets),'Low stock items':sum(float(r.quantity)<float(r.minimum_stock) for r in db.scalars(select(m.InventoryItem).where(m.InventoryItem.archived==False))),'Phiếu bảo trì đang mở':len(active)}
     distribution=lambda rows,key:dict(Counter(r.get(key) or 'Unassigned' for r in rows))
-    attention=[{'title':a['code']+' · '+a['name'],'subtitle':'Tài sản đang bảo trì','resource':'assets','id':a['id']} for a in assets if codes[a['status_id']] in {'repair','maintenance','broken'}]
+    attention=[{'title':a['code']+' · '+a['name'],'subtitle':'Tài sản đang bảo trì','resource':'assets','id':a['id']} for a in assets if a['current_status']=='MAINTENANCE']
     attention += [{'title':x['number'],'subtitle':'Phiếu bảo trì đang mở','resource':'maintenance','id':x['id']} for x in active]
     for ip in db.scalars(select(m.IPAddress).where(m.IPAddress.archived==False)):
         if codes[ip.status_id]=='conflict': attention.append({'title':ip.address,'subtitle':'Xung đột địa chỉ IP','resource':'ip-addresses','id':ip.id})
-    operations=[enriched(db,r) for r in db.scalars(select(m.AssetOperation).where(m.AssetOperation.operation_type.in_(['RECEIVED','ISSUED','RETURNED','MOVED','REASSIGNED','MAINTENANCE','RETIRED','UPDATED'])).order_by(m.AssetOperation.operation_date.desc(),m.AssetOperation.id.desc()).limit(12))]
+    operations=[enriched(db,r) for r in db.scalars(select(m.AssetOperation).where(m.AssetOperation.operation_type.in_(EVENT_TYPES)).order_by(m.AssetOperation.operation_date.desc(),m.AssetOperation.id.desc()).limit(12))]
     return {'stats':stats,'asset_type':distribution(assets,'type_label'),'asset_status':distribution(assets,'status_label'),'asset_location':distribution(assets,'location_label'),'operations':operations,'recent_returns':[r for r in operations if r['operation_type']=='RETURNED'][:5],'recent_assignments':[r for r in operations if r['operation_type']=='ISSUED'][:5],'attention':attention,'activities':[enriched(db,a) for a in db.scalars(select(m.AuditLog).order_by(m.AuditLog.id.desc()).limit(8))]}
 
 @app.get('/api/search')
@@ -266,9 +279,18 @@ def location_detail(id:int,user=Depends(current_user),db=Depends(get_db)):
     data['updated_by']=db.get(m.User,last.user_id).name if last and last.user_id else None
     return data
 
+@app.post('/api/maintenance/{id}/stop-asset')
+def stop_maintenance_asset(id:int,user=Depends(current_user),db=Depends(get_db)):
+    authorize(user,'maintenance'); authorize(user,'operations')
+    row=stop_asset_for_maintenance(db,id,user); db.commit(); return enriched(db,row)
+
 @app.post('/api/assets/{id}/retire')
 def retire(id:int,payload:Retire,user=Depends(current_user),db=Depends(get_db)):
     authorize(user,'operations'); row=retire_asset(db,id,payload,user); db.commit(); return enriched(db,row)
+
+@app.post('/api/assets/{id}/dispose')
+def dispose(id:int,payload:Retire,user=Depends(current_user),db=Depends(get_db)):
+    authorize(user,'operations'); row=dispose_asset(db,id,payload,user); db.commit(); return enriched(db,row)
 
 @app.post('/api/assets/{id}/move')
 def move_asset(id:int,payload:Move,user=Depends(current_user),db=Depends(get_db)):
@@ -277,8 +299,10 @@ def move_asset(id:int,payload:Move,user=Depends(current_user),db=Depends(get_db)
 def assign_asset(id:int,payload:Assign,user=Depends(current_user),db=Depends(get_db)):
     authorize(user,'operations'); row=assign(db,id,payload,user); db.commit(); return serialize(row)
 @app.post('/api/assets/{id}/return')
-def return_device(id:int,payload:Return,user=Depends(current_user),db=Depends(get_db)):
-    authorize(user,'operations'); row=return_asset(db,id,payload,user); db.commit(); return serialize(row)
+def return_device(id:int,payload:WarehouseReturn,user=Depends(current_user),db=Depends(get_db)):
+    authorize(user,'operations'); authorize(user,'warehouses')
+    row=stock_movement(db,StockMovement(transaction_type='RECEIVE',warehouse_id=payload.warehouse_id,asset_id=id,condition=payload.condition_in,note=payload.note,return_status=payload.return_status),user)
+    db.commit(); return enriched(db,row)
 @app.post('/api/assets/{id}/reassign')
 def reassign_device(id:int,payload:Reassign,user=Depends(current_user),db=Depends(get_db)):
     authorize(user,'operations'); row=reassign_asset(db,id,payload,user); db.commit(); return serialize(row)
@@ -301,13 +325,14 @@ def register_asset(payload:dict,user=Depends(current_user),db=Depends(get_db)):
     warehouse_id=payload.pop('warehouse_id',None)
     if not isinstance(warehouse_id,int) or isinstance(warehouse_id,bool): raise HTTPException(422,'Tài sản mới phải chọn kho tiếp nhận')
     payload.setdefault('name',payload.get('model'))
-    payload['status_id']=master(db,'asset_status','available')
+    payload.setdefault('status_id',master(db,'asset_status','available'))
     asset=receive_new_asset(db,warehouse_id,parse_payload('assets',payload),user)
     db.commit(); return enriched(db,asset)
 
 @app.post('/api/inventory/transactions',status_code=201)
 def inventory_transaction(payload:StockMovement,user=Depends(current_user),db=Depends(get_db)):
     authorize(user,'warehouses')
+    if payload.maintenance is not None: authorize(user,'maintenance')
     new_item=parse_payload('inventory-items',{**payload.new_item,'warehouse_id':payload.warehouse_id}) if payload.new_item is not None else None
     row=stock_movement(db,payload,user,new_item)
     db.commit(); return enriched(db,row)
@@ -344,8 +369,8 @@ def asset_photo(id:int,request:Request,user=Depends(current_user),db=Depends(get
 @app.get('/api/assets/import/template')
 def asset_import_template(user=Depends(current_user)):
     book=Workbook(); sheet=book.active; sheet.title='Tài sản'
-    sheet.append([field_label(k) for k in ['asset_type','warehouse','brand','model','serial','received_date','description']])
-    sheet.append(['Laptop','WH-Q7','Dell','Latitude 5440','SN-EXAMPLE-001','',''])
+    sheet.append([field_label(k) for k in ['asset_type','warehouse','brand','model','serial','received_date','description','status']])
+    sheet.append(['Laptop','WH-Q7','Dell','Latitude 5440','SN-EXAMPLE-001','','','AVAILABLE'])
     sheet.freeze_panes='A2'; buffer=io.BytesIO(); book.save(buffer); buffer.seek(0)
     return StreamingResponse(buffer,media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',headers={'Content-Disposition':'attachment; filename="asset-import-template.xlsx"'})
 
@@ -356,7 +381,7 @@ async def import_assets(file:UploadFile=File(...),user=Depends(current_user),db=
     try: book=load_workbook(io.BytesIO(content),read_only=True,data_only=True)
     except Exception: raise HTTPException(422,'Vui lòng chọn tệp Excel XLSX hợp lệ')
     rows=book.active.iter_rows(values_only=True); headers=[str(v or '').strip().lower() for v in next(rows,())]
-    aliases={field_label(k).lower():k for k in ['asset_type','warehouse','brand','model','serial','received_date','description']}
+    aliases={field_label(k).lower():k for k in ['asset_type','warehouse','brand','model','serial','received_date','description','status']}
     headers=[aliases.get(k,k) for k in headers]
     required={'asset_type','warehouse','model','serial'}
     if not required.issubset(headers): raise HTTPException(422,f"Thiếu cột: {', '.join(sorted(required-set(headers)))}")
@@ -374,7 +399,9 @@ async def import_assets(file:UploadFile=File(...),user=Depends(current_user),db=
             warehouse=db.scalar(select(m.Warehouse).where(func.lower(m.Warehouse.code)==warehouse_code.lower(),m.Warehouse.archived==False))
             if not asset_type: raise HTTPException(422,f'Dòng {row_number}: không tìm thấy loại tài sản "{type_name}"')
             if not warehouse: raise HTTPException(422,f'Dòng {row_number}: không tìm thấy mã kho "{warehouse_code}"')
-            data={'name':required_text('model'),'type_id':asset_type.id,'status_id':master(db,'asset_status','available'),'model':required_text('model'),'serial':required_text('serial')}
+            status=str(record.get('status') or 'AVAILABLE').strip()
+            if status not in STATUS_CODES: raise HTTPException(422,f'Dòng {row_number}: trạng thái phải là một trong {", ".join(STATUS_CODES)}')
+            data={'name':required_text('model'),'type_id':asset_type.id,'status_id':master(db,'asset_status',STATUS_CODES[status]),'model':required_text('model'),'serial':required_text('serial')}
             for key in ['brand','description']:
                 if record.get(key) not in (None,''): data[key]=str(record[key]).strip()
             for key in ['received_date']:
@@ -396,7 +423,6 @@ def ticket_detail(id:int,user=Depends(current_user),db=Depends(get_db)):
     stmt=select(m.TicketActivity).where(m.TicketActivity.ticket_id==id).order_by(m.TicketActivity.created_at)
     if user.role=='VIEWER': stmt=stmt.where(m.TicketActivity.internal==False)
     data['activities']=[enriched(db,r) for r in db.scalars(stmt)]
-    data['maintenance']=[enriched(db,r) for r in db.scalars(select(m.Maintenance).where(m.Maintenance.ticket_id==id))]
     data['articles']=[enriched(db,get(db,m.Article,r.article_id)) for r in db.scalars(select(m.TicketArticle).where(m.TicketArticle.ticket_id==id))]
     data['attachments']=[serialize(r) for r in db.scalars(select(m.Attachment).where(m.Attachment.ticket_id==id))]
     return data

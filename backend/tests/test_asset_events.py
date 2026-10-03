@@ -35,7 +35,7 @@ def test_one_event_per_operation_current_state_and_reassign(client,meta):
     assert client.post(f'/api/assets/{id}/reassign',json={'user_id':2,'reason':'Không đổi người'}).status_code==422
     assert client.post(f'/api/assets/{id}/reassign',json={'user_id':99999,'reason':'Người không tồn tại'}).status_code==404
     assert len(detail(client,id)['lifecycle'])==4
-    command(client,id,'return',{'condition_in':'Tốt'})
+    command(client,id,'return',{'warehouse_id':meta['warehouses'][0]['id'],'return_status':'AVAILABLE','condition_in':'Tốt'})
     d=detail(client,id); assert d['current_status']=='AVAILABLE' and d['current_assignee'] is None
     assert d['lifecycle'][0]['event_type']=='RETURNED'
     command(client,id,'retire',{'reason':'Ngừng sử dụng thiết bị'})
@@ -54,14 +54,16 @@ def test_maintenance_restores_previous_state_and_records_only_business_events(cl
             station=next(r for r in meta['locations'] if r['name']=='DG-01BD')
             assert client.post('/api/inventory/transactions',json={'transaction_type':'ISSUE','warehouse_id':a['warehouse_id'],'asset_id':id,'recipient_location_id':station['id']}).status_code==201
         before=detail(client,id);count=len(before['lifecycle'])
-        r=client.post('/api/maintenance',json={'asset_id':id,'type_id':master('maintenance_type','inspection'),'status_id':master('maintenance_status','open'),'technician_id':1,'problem':'Kiểm tra định kỳ'})
+        r=client.post('/api/maintenance',json={'asset_id':id,'type_id':master('maintenance_type','other'),'status_id':master('maintenance_status','open'),'technician_id':1,'problem':'Kiểm tra định kỳ'})
         assert r.status_code==201,r.text
-        d=detail(client,id);assert d['current_status']=='MAINTENANCE' and len(d['lifecycle'])==count+1
+        d=detail(client,id);assert d['current_status']==before['current_status'] and len(d['lifecycle'])==count+1
+        assert client.post('/api/maintenance/'+str(r.json()['id'])+'/stop-asset').status_code==200
+        d=detail(client,id);assert d['current_status']=='MAINTENANCE'
         assert d['lifecycle'][0]['event_type']=='MAINTENANCE'
-        assert client.patch('/api/maintenance/'+str(r.json()['id']),json={'status_id':master('maintenance_status','completed')}).status_code==200
-        d=detail(client,id);assert d['current_status']==('IN_USE' if issued else 'AVAILABLE')
+        assert client.patch('/api/maintenance/'+str(r.json()['id']),json={'status_id':master('maintenance_status','completed'),'resolution_outcome':'FIXED','diagnosis':'Đã xác định nguyên nhân','action_taken':'Đã xử lý'}).status_code==200
+        d=detail(client,id);assert d['current_status']=='AVAILABLE'
         assert d['current_location']==before['current_location'] and d['current_assignee']==before['current_assignee']
-        assert len(d['lifecycle'])==count+2 and d['lifecycle'][0]['event_type']=='MAINTENANCE'
+        assert len(d['lifecycle'])==count+3 and d['lifecycle'][0]['event_type']=='MAINTENANCE'
         assert all(e['event_type']!='STATUS_CHANGED' for e in d['lifecycle'])
 
 
@@ -85,7 +87,7 @@ def test_updated_only_for_important_changes_and_read_only_event_state(client,met
 def test_warehouse_return_is_one_returned_event(client,meta):
     a=receive(client,meta,'EVENT-STOCK-RETURN');id=a['id']
     assert client.post('/api/inventory/transactions',json={'transaction_type':'ISSUE','warehouse_id':a['warehouse_id'],'asset_id':id,'recipient_user_id':4}).status_code==201
-    assert client.post('/api/inventory/transactions',json={'transaction_type':'RECEIVE','warehouse_id':a['warehouse_id'],'asset_id':id}).status_code==201
+    assert client.post('/api/inventory/transactions',json={'transaction_type':'RECEIVE','return_status':'AVAILABLE','warehouse_id':a['warehouse_id'],'asset_id':id}).status_code==201
     d=detail(client,id)
     assert [e['event_type'] for e in d['lifecycle']]==['RETURNED','ISSUED','RECEIVED']
     assert d['current_status']=='AVAILABLE' and d['current_assignee'] is None and d['warehouse_id']==a['warehouse_id']

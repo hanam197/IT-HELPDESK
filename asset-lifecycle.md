@@ -1,81 +1,59 @@
 # Vòng đời tài sản
 
-## Sơ đồ tổng quan
+## Bộ trạng thái duy nhất
+
+| Mã | Hiển thị | Ý nghĩa |
+| --- | --- | --- |
+| `AVAILABLE` | Sẵn sàng | Có thể cấp phát, đưa vào sử dụng |
+| `IN_USE` | Đang sử dụng | Đang sử dụng tại trạm hoặc được cấp cho người dùng |
+| `MAINTENANCE` | Đang bảo trì | Đang sửa chữa/bảo trì, không được cấp phát |
+| `RETIRED` | Hư / Ngừng sử dụng | Không tiếp tục sử dụng; có thể thanh lý |
+| `DISPOSED` | Đã thanh lý | Kết thúc vòng đời, không quay lại sử dụng |
+
+Không dùng trạng thái để mô tả lỗi. Vấn đề, chẩn đoán, cách xử lý, linh kiện và kết quả nằm trong phiếu bảo trì/sửa chữa.
 
 ```mermaid
-flowchart TD
-    A[Tiếp nhận tài sản] --> B[Nhập kho]
-    B --> C[Sẵn sàng<br/>AVAILABLE]
-
-    C -->|Xuất kho cấp cho người dùng hoặc trạm| D[Đang sử dụng<br/>IN_USE]
-    D -->|Thu hồi| C
-
-    C -->|Điều chuyển vị trí| C
-    D -->|Điều chuyển vị trí| D
-    D -->|Chuyển người phụ trách| D
-
-    C -->|Đưa đi bảo trì| E[Đang bảo trì<br/>MAINTENANCE]
-    D -->|Đưa đi bảo trì| E
-
-    E -->|Hoàn tất hoặc hủy bảo trì| F{Khôi phục trạng thái trước đó}
-   F -->|Trước đó là AVAILABLE| C
-    F -->|Trước đó là IN_USE| D
-
-    C -->|Ngừng sử dụng| G[Ngừng sử dụng<br/>RETIRED]
-    D -->|Thu hồi và ngừng sử dụng| G
-    E -->|Hoàn tất bảo trì rồi ngừng sử dụng| G
-
-    G --> H[Trạng thái kết thúc]
+flowchart LR
+    A[AVAILABLE] -->|Cấp phát| U[IN_USE]
+    U -->|Dừng thiết bị để sửa| M[MAINTENANCE]
+    M -->|Đã khắc phục| A
+    U -->|Ngừng sử dụng| R[RETIRED]
+    M -->|Ngừng sử dụng| R
+    R -->|Thanh lý| D[DISPOSED]
+    U -->|Thu hồi| A
+    A -->|Dừng thiết bị để sửa trong kho| M
+    A -->|Ngừng sử dụng| R
 ```
 
-## Các bước trong vòng đời
+Ba đường bổ sung giữ tương thích Asset Operations hiện có: thu hồi `IN_USE → AVAILABLE`, bảo trì thiết bị sẵn sàng `AVAILABLE → MAINTENANCE`, ngừng sử dụng thiết bị trong kho `AVAILABLE → RETIRED`. Chuyển người phụ trách và điều chuyển vị trí không tự đổi trạng thái.
 
-1. **Tiếp nhận và nhập kho**
-   - Tạo hồ sơ tài sản.
-   - Ghi nhận kho, vị trí và người thực hiện.
-   - Phát sinh sự kiện `RECEIVED`.
-   - Trạng thái: `AVAILABLE` - Sẵn sàng.
+## Tạo tài sản và nhập Excel
 
-2. **Cấp phát**
-   - Xuất tài sản khỏi kho cho người dùng hoặc trạm.
-   - Ghi nhận người nhận, vị trí và ngày bàn giao.
-   - Phát sinh sự kiện `ISSUED`.
-   - Trạng thái: `IN_USE` - Đang sử dụng.
+- Form Status bắt buộc, được chọn đúng 5 trạng thái, mặc định `AVAILABLE`. Có thể xóa lựa chọn nhưng không lưu được khi trống.
+- API sử dụng `status_id` hiện có, kiểm tra đúng danh mục và không ghi đè lựa chọn. Bỏ hẳn trường này dùng `AVAILABLE` để tương thích client cũ; `null` và chuỗi rỗng bị từ chối.
+- Excel có cột Trạng thái (`status`), nhận đúng các mã phía trên. Thiếu cột hoặc để trống dùng `AVAILABLE`; trạng thái không hợp lệ hủy toàn bộ lượt nhập.
+- Việc tạo hồ sơ là khởi tạo trạng thái hiện tại, không phải chuyển trạng thái của tài sản đang tồn tại. Được ghi `RECEIVED` với trạng thái ban đầu và người nhập.
+- `AVAILABLE` / `MAINTENANCE` / `RETIRED` nhận vào kho. Khi khởi tạo hồ sơ đang sử dụng, hệ thống vẫn giữ vị trí tiếp nhận nhưng không đánh dấu còn trong kho và không tự tạo cấp phát. Hồ sơ đã thanh lý không còn vị trí hiện tại.
 
-3. **Điều chuyển hoặc đổi người phụ trách**
-   - Điều chuyển chỉ thay đổi vị trí.
-   - Đổi người phụ trách lưu cả người cũ và người mới.
-   - Trạng thái sử dụng không thay đổi.
+## Các thao tác
 
-4. **Thu hồi**
-   - Kết thúc cấp phát hiện tại.
-   - Đưa tài sản về kho.
-   - Phát sinh sự kiện `RETURNED`.
-   - Trạng thái trở về `AVAILABLE`.
+- **Xuất kho:** chỉ `AVAILABLE`; record vấn đề đang mở không tự chặn thiết bị vẫn sử dụng được. Chọn người nhận hoặc trạm, chuyển `IN_USE`, ghi một sự kiện `ISSUED`.
+- **Thu hồi:** đóng cấp phát và nhập về kho, mặc định `AVAILABLE`. Chỉ chọn `AVAILABLE`, `MAINTENANCE` hoặc `RETIRED`; không đánh dấu tài sản trong kho đang sử dụng và không bỏ qua bước thanh lý. RETURN về AVAILABLE hoàn tất phiếu xử lý đang mở trong cùng giao dịch; RETURN về MAINTENANCE giữ phiếu mở để tiếp tục sửa. Ghi một sự kiện `RETURNED`; thu hồi `RETIRED` vẫn giữ vị trí kho để quản lý tài sản chờ thanh lý.
+- **Bảo trì:** ghi nhận vấn đề không tự đổi trạng thái Asset. Chỉ thao tác “Dừng thiết bị để sửa” chuyển `MAINTENANCE`, giữ nguyên Station/Assignee. Hoàn tất với kết quả Đã khắc phục chuyển `AVAILABLE`; Không khắc phục được chuyển `RETIRED` (Hư / Ngừng sử dụng). Kết thúc cấp phát, giữ vị trí/kho. Phiếu hoàn tất không được chỉnh sửa. Xem [Maintenance flow](docs/maintenance-flow.md).
+- **Ngừng sử dụng:** áp dụng cho `AVAILABLE`, `IN_USE`, `MAINTENANCE`. Kết thúc cấp phát, đóng phiếu bảo trì mở với kết quả/nguyên nhân lưu trong phiếu, giữ nguyên vị trí và kho cho đến khi thanh lý trong cùng giao dịch. Ghi một sự kiện `RETIRED`.
+- **Thanh lý:** chỉ từ `RETIRED`, bắt buộc lý do. Đóng vị trí kho còn lại nếu có, chuyển `DISPOSED`, ghi một sự kiện `DISPOSED`. Chặn cấp phát, điều chuyển, thu hồi, bảo trì và thanh lý lần hai.
+- Không sửa trực tiếp trạng thái qua PATCH tài sản; phải dùng thao tác nghiệp vụ để đồng bộ kho, cấp phát, bảo trì và lịch sử.
 
-5. **Bảo trì**
-   - Tài sản chuyển sang `MAINTENANCE`.
-   - Không được xuất kho khi đang có đợt bảo trì mở.
-   - Khi hoàn tất hoặc hủy bảo trì, trạng thái được khôi phục về `AVAILABLE` hoặc `IN_USE`.
+## Asset History
 
-6. **Ngừng sử dụng**
-   - Phải thu hồi người phụ trách và kết thúc bảo trì trước.
-   - Đóng vị trí hiện tại và loại khỏi tồn kho.
-   - Phát sinh sự kiện `RETIRED`.
-   - Đây là trạng thái kết thúc; tài sản không thể cấp phát, điều chuyển hoặc nhập lại kho.
+Chín loại sự kiện: `RECEIVED`, `ISSUED`, `RETURNED`, `MOVED`, `REASSIGNED`, `MAINTENANCE`, `RETIRED`, `DISPOSED`, `UPDATED`.
 
-## Lịch sử tài sản
+Mỗi thao tác tạo một sự kiện trong cùng transaction, chứa trạng thái trước/sau, thời gian và người thực hiện. Bảng lịch sử hiển thị `Old Status → New Status`; popup giữ chi tiết vị trí, người phụ trách, thay đổi và liên kết phiếu bảo trì. Không tạo sự kiện trạng thái trùng với sự kiện nghiệp vụ.
 
-Toàn bộ thao tác được lưu trong **History** dưới dạng timeline bất biến, gồm:
+## Chuyển dữ liệu cũ
 
-- Nhập và xuất kho
-- Cấp phát và thu hồi
-- Điều chuyển vị trí
-- Chuyển người phụ trách
-- Bảo trì
-- Cập nhật thông tin
-- Ngừng sử dụng
+Migration `0007` chuẩn hóa `REPAIR_NEEDED`, `BROKEN`, `DAMAGED`, `WAITING_REPAIR` về `MAINTENANCE`; không tự kết luận thiết bị phải bỏ chỉ dựa trên nhãn lỗi. `RETIRED` được giữ nguyên. Chuẩn hóa cả `status_id`, trạng thái trước bảo trì và trạng thái trong snapshot sự kiện; giữ nội dung lỗi/sửa chữa, actor, thời gian và audit gốc.
 
-## Cách xem trong VS Code
+Danh mục dư được lưu trữ, không còn là lựa chọn hoạt động; giữ bản ghi để không phá liên kết lịch sử. Database giới hạn `current_status` bằng CHECK (database mới/PostgreSQL) hoặc trigger tương đương (SQLite nâng cấp). Sao lưu trước `alembic upgrade head`. Không downgrade làm mất bằng chứng lịch sử; khôi phục bản sao lưu nếu cần quay lại phiên bản cũ.
 
-Mở file này, sau đó nhấn `Ctrl+Shift+V` để mở Markdown Preview.
+Migration `0008` tách Maintenance khỏi Ticket và chuyển danh mục loại bảo trì thành nhóm vấn đề; giữ tham chiếu/loại cũ trong ghi chú, không thay đổi trạng thái Asset.

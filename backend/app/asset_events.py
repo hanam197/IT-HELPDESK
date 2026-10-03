@@ -2,17 +2,32 @@
 from sqlalchemy import select
 from . import models as m
 
-EVENT_TYPES={'RECEIVED','ISSUED','RETURNED','MOVED','REASSIGNED','MAINTENANCE','RETIRED','UPDATED'}
-STATUS_CODES={'AVAILABLE':'available','IN_USE':'in_use','MAINTENANCE':'maintenance','RETIRED':'retired'}
-EVENT_LABELS={'RECEIVED':'Nhập tài sản','ISSUED':'Cấp phát','RETURNED':'Thu hồi','MOVED':'Điều chuyển vị trí','REASSIGNED':'Chuyển người chịu trách nhiệm','MAINTENANCE':'Sửa chữa / bảo trì','RETIRED':'Ngừng sử dụng','UPDATED':'Cập nhật thông tin'}
-STATUS_LABELS={'AVAILABLE':'Sẵn sàng','IN_USE':'Đang sử dụng','MAINTENANCE':'Đang bảo trì','RETIRED':'Ngừng sử dụng'}
+EVENT_TYPES={'RECEIVED','ISSUED','RETURNED','MOVED','REASSIGNED','MAINTENANCE','RETIRED','DISPOSED','UPDATED'}
+STATUS_CODES={'AVAILABLE':'available','IN_USE':'in_use','MAINTENANCE':'maintenance','RETIRED':'retired','DISPOSED':'disposed'}
+EVENT_LABELS={'RECEIVED':'Nhập tài sản','ISSUED':'Cấp phát','RETURNED':'Thu hồi','MOVED':'Điều chuyển vị trí','REASSIGNED':'Chuyển người chịu trách nhiệm','MAINTENANCE':'Sửa chữa / bảo trì','RETIRED':'Hư / Ngừng sử dụng','DISPOSED':'Thanh lý','UPDATED':'Cập nhật thông tin'}
+STATUS_LABELS={'AVAILABLE':'Sẵn sàng','IN_USE':'Đang sử dụng','MAINTENANCE':'Đang bảo trì','RETIRED':'Hư / Ngừng sử dụng','DISPOSED':'Đã thanh lý'}
 IMPORTANT_FIELDS=('code','type_id','brand','model','serial','received_date','description')
 
 def normalize_status(code):
-    return {'assigned':'IN_USE','active':'IN_USE','in_use':'IN_USE','repair':'MAINTENANCE','broken':'MAINTENANCE','maintenance':'MAINTENANCE','retired':'RETIRED','lost':'RETIRED'}.get(str(code).lower(),'AVAILABLE')
+    return {'repair_needed':'MAINTENANCE','waiting_repair':'MAINTENANCE','damaged':'MAINTENANCE','disposed':'DISPOSED','assigned':'IN_USE','active':'IN_USE','in_use':'IN_USE','repair':'MAINTENANCE','broken':'MAINTENANCE','maintenance':'MAINTENANCE','retired':'RETIRED','lost':'RETIRED'}.get(str(code).lower(),'AVAILABLE')
 
-def set_status(db,asset,status):
-    from .services import master
+# Warehouse returns and preventive maintenance preserve the existing operations.
+TRANSITIONS = {
+    'AVAILABLE': {'IN_USE', 'MAINTENANCE', 'RETIRED'},
+    'IN_USE': {'AVAILABLE', 'MAINTENANCE', 'RETIRED'},
+    'MAINTENANCE': {'AVAILABLE', 'IN_USE', 'RETIRED'},
+    'RETIRED': {'DISPOSED'},
+    'DISPOSED': set(),
+}
+TERMINAL_STATUSES = {'RETIRED', 'DISPOSED'}
+
+
+def set_status(db,asset,status,*,initial=False):
+    from .services import master, fail
+    if status not in STATUS_CODES: fail('Trạng thái thiết bị không hợp lệ')
+    old=asset.current_status
+    if not initial and old and old!=status and status not in TRANSITIONS.get(old,set()):
+        fail(f'Không thể chuyển trạng thái {old} → {status}')
     asset.current_status=status
     asset.status_id=master(db,'asset_status',STATUS_CODES[status])
 

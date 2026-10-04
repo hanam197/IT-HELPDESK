@@ -10,7 +10,7 @@ test('warehouse consumables and station workspace on desktop and mobile',async({
  await page.goto('/assets')
  await expect(page.getByRole('button',{name:'Create asset'})).toHaveCount(0)
  await page.goto('/warehouses')
- await page.getByRole('button',{name:'Nhập vật tư / thu hồi'}).click()
+ await page.getByRole('button',{name:'Nhập vật tư',exact:true}).click()
  let dialog=page.getByRole('dialog')
  await dialog.getByLabel('Nhập vật tư').selectOption('new')
  const code='RIBBON-'+Date.now()

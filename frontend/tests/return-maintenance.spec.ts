@@ -23,6 +23,7 @@ test('return popup creates repair atomically and keeps table history',async({pag
  await dialog.getByRole('textbox',{name:'Vấn đề *',exact:true}).fill('Không lên nguồn')
  await dialog.getByLabel('Nhóm vấn đề').selectOption({label:'Nguồn điện'})
  await dialog.getByLabel('Người xử lý').selectOption('3')
+ await dialog.getByText('Thông tin bổ sung',{exact:true}).click()
  await dialog.getByLabel('Nguyên nhân / Chẩn đoán').fill('Nghi nguồn hỏng')
  await dialog.getByRole('button',{name:'Thu hồi và tạo bảo trì'}).click()
  await expect(dialog).not.toBeVisible()

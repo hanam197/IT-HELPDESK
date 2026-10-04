@@ -34,6 +34,8 @@ def build_schema(model, partial=False):
         if t is str:
             fields[c.name] = (t, Field(default=default, min_length=1, max_length=getattr(c.type, 'length', None) or 50000))
         else: fields[c.name] = (t, default)
+    if model is m.Warehouse and not partial:
+        fields['code'] = (str | None, Field(default=None, min_length=1, max_length=40))
     if model is m.Maintenance:
         fields['resolution_outcome'] = (Literal['FIXED','UNREPAIRABLE'] | None, None)
         fields['replacement_asset_ids'] = (list[Annotated[int, Field(gt=0, strict=True)]] | None, Field(default=None, max_length=100))

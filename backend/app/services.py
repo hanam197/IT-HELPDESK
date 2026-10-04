@@ -98,6 +98,10 @@ def validate(db, resource, data, obj=None):
     if resource == 'asset-types' and obj:
         if data.get('allow_assignment') is False and db.scalar(select(m.Assignment.id).join(m.Asset,m.Assignment.asset_id==m.Asset.id).where(m.Asset.type_id==obj.id,m.Assignment.returned_at==None).limit(1)): fail('Thu hồi thiết bị đã cấp trước khi tắt quyền cấp phát')
     if resource == 'inventory-items' and obj and 'warehouse_id' in data and data['warehouse_id']!=obj.warehouse_id: fail('Không thể đổi kho của vật tư; cần nhập vật tư tại kho đích')
+    if resource == 'warehouses' and obj is None:
+        location=get(db,m.Location,val('location_id'))
+        if location.kind!='site': fail('Vị trí kho phải thuộc cấp Cơ sở')
+        if not location.active: fail('Vui lòng chọn cơ sở đang hoạt động')
     if resource == 'warehouses' and obj and 'location_id' in data and data['location_id']!=obj.location_id: fail('Không thể đổi vị trí kho sau khi tạo')
     if resource == 'locations':
         if val('kind') not in {'site','team','station'}: fail('Cấp vị trí phải là cơ sở, bộ phận hoặc trạm')
@@ -217,9 +221,16 @@ def save(db, resource, data, user, obj=None, emit_event=True):
         target=locked[target_id]
         if obj: db.refresh(obj)
         maintenance_before=snapshot(db,target)
+    if resource=='warehouses' and obj is None and data.get('code') is None:
+        data.pop('code',None)
     validate(db, resource, data, obj)
     old = serialize(obj) if obj else None
     if not obj:
+        if resource=='warehouses' and not data.get('code'):
+            code=next_number(db,'WH')
+            while db.scalar(select(m.Warehouse.id).where(m.Warehouse.code==code)):
+                code=next_number(db,'WH')
+            data['code']=code
         if resource in {'tickets','maintenance','articles'}: data['number'] = next_number(db, {'tickets':'INC','maintenance':'MNT','articles':'KB'}[resource])
         if resource == 'tickets': data['reporter_id'] = user.id
         if resource == 'articles': data['author_id'] = user.id

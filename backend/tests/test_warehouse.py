@@ -228,3 +228,75 @@ def test_return_uses_allowed_shared_asset_statuses(client,meta):
         assert current['assignment_id'] is None
         assert current['lifecycle'][0]['event_type']=='RETURNED'
         assert current['lifecycle'][0]['after_state']['current_status']==status['id']
+
+
+def test_warehouse_generates_unique_codes_and_skips_existing_codes(client, meta):
+    site = next(row for row in meta['locations'] if row['kind'] == 'site' and row['active'])
+    payload = {'name': 'IT Store tự sinh', 'location_id': site['id']}
+    first = client.post('/api/warehouses', json=payload)
+    assert first.status_code == 201, first.text
+    first_code = first.json()['code']
+    assert first_code.startswith(f'WH-{datetime.now(timezone.utc).year}-')
+    prefix, sequence = first_code.rsplit('-', 1)
+    reserved_code = f'{prefix}-{int(sequence) + 1:05d}'
+    reserved = client.post('/api/warehouses', json={**payload, 'code': reserved_code})
+    assert reserved.status_code == 201, reserved.text
+    assert client.delete(f"/api/warehouses/{reserved.json()['id']}").status_code == 200
+    second = client.post('/api/warehouses', json=payload)
+    assert second.status_code == 201, second.text
+    assert second.json()['code'] == f'{prefix}-{int(sequence) + 2:05d}'
+    edited = client.patch(f"/api/warehouses/{first.json()['id']}", json={'name': 'IT Store đổi tên'})
+    assert edited.status_code == 200 and edited.json()['code'] == first_code
+
+
+def test_new_warehouse_requires_an_active_site(client, meta):
+    for kind in ('team', 'station'):
+        location = next(row for row in meta['locations'] if row['kind'] == kind)
+        response = client.post('/api/warehouses', json={'name': 'Kho sai cấp', 'location_id': location['id']})
+        assert response.status_code == 422
+        assert 'Cơ sở' in response.json()['detail']
+    site = client.post('/api/locations', json={'kind': 'site', 'name': 'Cơ sở ngừng hoạt động', 'active': False})
+    assert site.status_code == 201, site.text
+    response = client.post('/api/warehouses', json={'name': 'Kho ngừng hoạt động', 'location_id': site.json()['id']})
+    assert response.status_code == 422
+    assert 'đang hoạt động' in response.json()['detail']
+    assert client.get('/api/warehouses', params={'q': 'Kho sai cấp'}).json()['total'] == 0
+
+
+def test_existing_warehouse_location_is_preserved(client, meta):
+    warehouse = meta['warehouses'][0]
+    response = client.patch(f"/api/warehouses/{warehouse['id']}", json={'description': 'Kho IT hiện có'})
+    assert response.status_code == 200, response.text
+    assert response.json()['code'] == warehouse['code']
+    assert response.json()['location_id'] == warehouse['location_id']
+
+
+def test_site_warehouse_supports_receipt_issue_and_return(client, meta):
+    site = next(row for row in meta['locations'] if row['kind'] == 'site' and row['active'])
+    created = client.post('/api/warehouses', json={'name': 'IT Store cấp cơ sở', 'location_id': site['id']})
+    assert created.status_code == 201, created.text
+    warehouse_id = created.json()['id']
+    received = client.post('/api/assets/register', json={
+        'warehouse_id': warehouse_id,
+        'type_id': next(row['id'] for row in meta['asset-types'] if row['name'] == 'Laptop'),
+        'model': 'Site warehouse laptop', 'serial': 'SITE-WAREHOUSE-ROUNDTRIP',
+    })
+    assert received.status_code == 201, received.text
+    asset_id = received.json()['id']
+    assert received.json()['location_id'] == site['id']
+    station = next(row for row in meta['locations'] if row['kind'] == 'station' and row['active'])
+    issued = client.post('/api/inventory/transactions', json={
+        'transaction_type': 'ISSUE', 'warehouse_id': warehouse_id,
+        'asset_id': asset_id, 'recipient_user_id': 4, 'recipient_location_id': station['id'],
+    })
+    assert issued.status_code == 201, issued.text
+    returned = client.post('/api/inventory/transactions', json={
+        'transaction_type': 'RECEIVE', 'warehouse_id': warehouse_id,
+        'asset_id': asset_id, 'return_status': 'AVAILABLE',
+    })
+    assert returned.status_code == 201, returned.text
+    current = client.get(f'/api/assets/{asset_id}/detail').json()
+    assert current['warehouse_id'] == warehouse_id
+    assert current['location_id'] == site['id']
+    assert current['assignment_id'] is None
+    assert current['current_status'] == 'AVAILABLE'

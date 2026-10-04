@@ -111,10 +111,10 @@ export function StockDialog({warehouseId:initialWarehouseId,mode,meta,onClose,as
 
 }
 
-export function QuickStockIssue({user,asset,item,warehouseId=0,compact=false}:{user:Row,asset?:Row,item?:Row,warehouseId?:number,compact?:boolean}){
+export function QuickStockIssue({user,asset,item,warehouseId=0,compact=false,iconOnly=false}:{user:Row,asset?:Row,item?:Row,warehouseId?:number,compact?:boolean,iconOnly?:boolean}){
  const [show,setShow]=useState(false)
  const {data:meta}=useQuery({queryKey:['meta'],queryFn:()=>api('/meta')})
  if(!canWrite(user.role,'warehouses')||asset&&(!asset.warehouse_id||asset.current_status!=='AVAILABLE')||item&&item.quantity<=0)return null
  const id=asset?.warehouse_id||item?.warehouse_id||warehouseId||meta?.warehouses[0]?.id||0
- return <><Button size={compact?'sm':'default'} variant={compact?'outline':'default'} disabled={!meta||!id} onClick={()=>setShow(true)}><ArrowUpFromLine size={15}/>Xuất kho</Button>{show&&meta&&<StockDialog warehouseId={id} mode="ISSUE" meta={meta} asset={asset} item={item} onClose={()=>setShow(false)}/>}</>
+ return <><Button size={iconOnly?'icon':compact?'sm':'default'} variant={compact||iconOnly?'outline':'default'} className={iconOnly?'row-action row-action-issue':undefined} title={iconOnly?'Xuất kho':undefined} aria-label={iconOnly?'Xuất kho':undefined} disabled={!meta||!id} onClick={()=>setShow(true)}><ArrowUpFromLine size={15}/>{!iconOnly&&'Xuất kho'}</Button>{show&&meta&&<StockDialog warehouseId={id} mode="ISSUE" meta={meta} asset={asset} item={item} onClose={()=>setShow(false)}/>}</>
 }

@@ -52,6 +52,10 @@ class Move(StrictSchema):
     location_id: int
     reason: str = Field(default='Điều chuyển vị trí', min_length=3, max_length=2000)
     note: str | None = None
+class WarehouseMove(StrictSchema):
+    warehouse_id: int
+    reason: str = Field(min_length=3, max_length=2000)
+    note: str | None = None
 class Assign(StrictSchema):
     user_id: int
     department: str | None = None

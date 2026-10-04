@@ -302,3 +302,25 @@ def test_site_warehouse_supports_receipt_issue_and_return(client, meta):
     assert current['location_id'] == site['id']
     assert current['assignment_id'] is None
     assert current['current_status'] == 'AVAILABLE'
+
+
+def test_transfer_between_warehouses_keeps_status_and_records_both_sides(client, meta):
+    source, destination = meta['warehouses'][:2]
+    asset = receive(client, meta, 'WAREHOUSE-MOVE-001')
+    path = f"/api/assets/{asset['id']}/warehouse-move"
+    assert client.post(path, json={'warehouse_id': source['id'], 'reason': 'Chuyển cơ sở'}).status_code == 422
+    result = client.post(path, json={'warehouse_id': destination['id'], 'reason': 'Chuyển sang cơ sở khác'})
+    assert result.status_code == 200, result.text
+    moved = result.json()
+    assert moved['warehouse_id'] == destination['id']
+    assert moved['current_location_id'] == destination['location_id']
+    assert moved['current_status'] == asset['current_status']
+    from app.database import SessionLocal
+    from app import models as m
+    from sqlalchemy import select
+    with SessionLocal() as db:
+        transactions = db.scalars(select(m.InventoryTransaction).where(m.InventoryTransaction.asset_id == asset['id']).order_by(m.InventoryTransaction.id)).all()
+        assert [(r.transaction_type, r.warehouse_id) for r in transactions] == [('RECEIVE', source['id']), ('ISSUE', source['id']), ('RECEIVE', destination['id'])]
+        assert transactions[-1].transaction_date == transactions[-2].transaction_date
+        assert 'Chuyển sang cơ sở khác' in transactions[-1].note
+    assert client.post(path, json={'warehouse_id': source['id'], 'reason': 'Chuyển trở lại'}).status_code == 200

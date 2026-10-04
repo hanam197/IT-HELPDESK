@@ -179,3 +179,29 @@ def issue_maintenance_parts(db, record, target, part_ids, user):
         audit(db,user,'issue','assets',part,before)
         audit(db,user,'issue','inventory-transactions',row)
         emit(db,part,'ISSUED',user,state_before,description=note,when=when,source_ref='stock:'+str(row.id),extra_after={'maintenance':{'id':record.id,'number':record.number},'installed_in_asset':{'id':target.id,'code':target.code}})
+
+
+def transfer_warehouse(db, asset_id, payload, user):
+    asset = lock_asset(db, asset_id)
+    if not asset.warehouse_id: fail('Tài sản không còn trong kho. Vui lòng tải lại danh sách')
+    if asset.current_status == 'DISPOSED': fail('Thiết bị đã thanh lý, không thể điều chuyển')
+    source = get(db, m.Warehouse, asset.warehouse_id)
+    destination = get(db, m.Warehouse, payload.warehouse_id)
+    if source.id == destination.id: fail('Vui lòng chọn kho khác kho hiện tại')
+    if not get(db, m.Location, destination.location_id).active: fail('Vị trí kho đã ngừng hoạt động')
+    before = snapshot(db, asset)
+    when = m.now()
+    if asset.current_location_id != destination.location_id:
+        move(db, asset.id, Move(location_id=destination.location_id, reason=payload.reason, note=payload.note), user, warehouse_flow=True)
+    asset.warehouse_id = destination.id
+    note = f'Điều chuyển kho: {source.name} → {destination.name}. {payload.reason}'
+    if payload.note: note += '\n' + payload.note
+    for kind, warehouse in [('ISSUE', source), ('RECEIVE', destination)]:
+        row = m.InventoryTransaction(number=next_number(db, 'STK'), transaction_type=kind,
+            warehouse_id=warehouse.id, asset_id=asset.id, quantity=1, performed_by=user.id,
+            transaction_date=when, note=note)
+        db.add(row); db.flush()
+        audit(db, user, kind.lower(), 'inventory-transactions', row)
+    emit(db, asset, 'MOVED', user, before, description=note, when=when)
+    db.flush()
+    return asset

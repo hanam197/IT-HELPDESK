@@ -18,11 +18,11 @@ from openpyxl import Workbook, load_workbook
 from PIL import Image, UnidentifiedImageError
 from .database import get_db, settings
 from . import models as m
-from .schemas import RESOURCES, READ_ONLY, SCHEMAS, Login, Move, Assign, WarehouseReturn, Transfer, Comment, StockMovement, HandoverInfo, Retire, Reassign
+from .schemas import RESOURCES, READ_ONLY, SCHEMAS, Login, Move, WarehouseMove, Assign, WarehouseReturn, Transfer, Comment, StockMovement, HandoverInfo, Retire, Reassign
 from .security import current_user, authorize, passwords, check_login_limit
 from .services import get, serialize, save, audit, activity, move, assign, master, next_number, retire_asset, reassign_asset, dispose_asset, stop_asset_for_maintenance
 
-from .warehouse import receive_new_asset, stock_movement
+from .warehouse import receive_new_asset, stock_movement, transfer_warehouse
 from .lifecycle import asset_lifecycle
 from .asset_events import STATUS_CODES, STATUS_LABELS, EVENT_TYPES
 from .localization import field_label
@@ -297,6 +297,9 @@ def dispose(id:int,payload:Retire,user=Depends(current_user),db=Depends(get_db))
 @app.post('/api/assets/{id}/move')
 def move_asset(id:int,payload:Move,user=Depends(current_user),db=Depends(get_db)):
     authorize(user,'operations'); row=move(db,id,payload,user); db.commit(); return serialize(row)
+@app.post('/api/assets/{id}/warehouse-move')
+def warehouse_move_asset(id:int,payload:WarehouseMove,user=Depends(current_user),db=Depends(get_db)):
+    authorize(user,'warehouses'); row=transfer_warehouse(db,id,payload,user); db.commit(); return enriched(db,row)
 @app.post('/api/assets/{id}/assign')
 def assign_asset(id:int,payload:Assign,user=Depends(current_user),db=Depends(get_db)):
     authorize(user,'operations'); row=assign(db,id,payload,user); db.commit(); return serialize(row)

@@ -44,7 +44,7 @@ for(const flow of ['onsite','resume','return','retire'])test('maintenance issue 
   await page.getByRole('button',{name:'Hoàn tất',exact:true}).click()
  }else if(flow==='return'){
   await page.getByRole('button',{name:'Thao tác khác',exact:true}).click()
-  await page.getByRole('button',{name:'Thu hồi về kho',exact:true}).click()
+  await page.getByRole('button',{name:'Thu hồi',exact:true}).click()
   await expect(dialog.getByLabel('Tình trạng thu hồi')).toHaveValue('AVAILABLE')
   await dialog.getByLabel('Nguyên nhân thu hồi').fill('Thu hồi thiết bị về kho')
  await dialog.getByRole('button',{name:'Xác nhận thu hồi'}).click()

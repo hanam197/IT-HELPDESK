@@ -20,7 +20,6 @@ import {
   Trash2,
   Download,
   X,
-  ArrowDownToLine,
 } from "lucide-react";
 import { api, canWrite, formatDate, label, type Row } from "./api";
 import { configs } from "./config";
@@ -109,13 +108,6 @@ export function AssetDetail({
                   )}
                   {(data.assignment_id || data.current_status === "IN_USE") && (
                     <>
-                      <Button
-                        variant="outline"
-                        onClick={() => operation("return")}
-                      >
-                        <CornerDownLeft size={15} />
-                        Thu hồi
-                      </Button>
                       {data.current_assignee_id &&
                         data.current_status === "IN_USE" && (
                           <Button
@@ -134,8 +126,8 @@ export function AssetDetail({
                       disabled={!meta?.warehouses.length}
                       onClick={() => setReceive(true)}
                     >
-                      <ArrowDownToLine size={15} />
-                      Thu hồi về kho
+                      <CornerDownLeft size={15} />
+                      Thu hồi
                     </Button>
                   )}
                 </>

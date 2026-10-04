@@ -1,3 +1,4 @@
+import { attachReturnDocument } from './stock-helpers'
 import { test,expect } from '@playwright/test'
 
 test.beforeEach(async({page})=>{
@@ -113,6 +114,7 @@ test('asset create, move, assignment, return and maintenance via UI',async({page
  dialog=page.getByRole('dialog')
  await dialog.getByLabel('Tình trạng thu hồi',{exact:false}).selectOption('MAINTENANCE')
  await dialog.getByLabel('Nguyên nhân thu hồi').fill('Thu hồi thiết bị về kho')
+ await attachReturnDocument(dialog)
  await dialog.getByRole('button',{name:'Xác nhận thu hồi'}).click()
  await expect(dialog).not.toBeVisible()
  await expect(page.locator('.asset-title-line')).toContainText('Đang bảo trì')

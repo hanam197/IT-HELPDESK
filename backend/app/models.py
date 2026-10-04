@@ -63,7 +63,7 @@ class Asset(Record, Base):
     current_location_id: Mapped[int | None] = mapped_column(ForeignKey('locations.id'))
     current_assignee_id: Mapped[int | None] = mapped_column(ForeignKey('users.id'))
     code: Mapped[str] = mapped_column(String(40), unique=True)
-    name: Mapped[str] = mapped_column(String(150))
+    name: Mapped[str] = mapped_column(String(400))
     type_id: Mapped[int] = mapped_column(ForeignKey('asset_types.id'))
     status_id: Mapped[int] = mapped_column(ForeignKey('master_data.id'))
     brand: Mapped[str | None] = mapped_column(String(100))

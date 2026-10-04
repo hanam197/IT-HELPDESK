@@ -4,7 +4,7 @@ from decimal import Decimal
 from sqlalchemy import select
 from . import models as m
 from .schemas import Move, Assign, Return
-from .services import get, fail, save, move, assign, return_asset, master, audit, serialize, next_number, lock_asset, operation, close_maintenance_for_operation
+from .services import get, fail, save, move, assign, return_asset, master, audit, serialize, next_number, lock_asset, asset_device_name, operation, close_maintenance_for_operation
 from .asset_events import snapshot, set_status, emit, TERMINAL_STATUSES
 
 
@@ -36,8 +36,11 @@ def receive_new_asset(db, warehouse_id, data, user):
 def stock_movement(db, payload, user, new_item_data=None, handover=None):
     if payload.transaction_type=='ISSUE' and payload.recipient_user_id and handover is None:
         fail('Phải tải lên biên bản bàn giao đã ký trước khi hoàn tất xuất kho cho người phụ trách')
-    if handover is not None and (payload.transaction_type!='ISSUE' or not payload.recipient_user_id):
-        fail('Biên bản bàn giao chỉ áp dụng cho xuất kho có người phụ trách')
+    return_document=payload.transaction_type=='RECEIVE' and payload.asset_id is not None
+    if return_document and handover is None:
+        fail('Phải tải lên biên bản thu hồi đã ký trước khi hoàn tất thu hồi')
+    if handover is not None and not (return_document or payload.transaction_type=='ISSUE' and payload.recipient_user_id):
+        fail('Biên bản chỉ áp dụng cho xuất kho có người phụ trách hoặc thu hồi thiết bị')
     if payload.reason is not None and (payload.transaction_type!='RECEIVE' or not payload.asset_id):
         fail('Nguyên nhân thu hồi chỉ áp dụng cho tài sản thu hồi')
     if payload.maintenance is not None:
@@ -120,17 +123,17 @@ def stock_movement(db, payload, user, new_item_data=None, handover=None):
         audit(db,user,payload.transaction_type.lower(),'inventory-items',item,before)
     row=m.InventoryTransaction(number=next_number(db,'STK'),transaction_type=payload.transaction_type,warehouse_id=warehouse.id,asset_id=asset.id if asset else None,item_id=item.id if item else None,quantity=quantity,transaction_date=when,recipient_user_id=payload.recipient_user_id,recipient_location_id=payload.recipient_location_id,source_vendor=payload.source_vendor,condition=payload.condition,performed_by=user.id,note='\n'.join(filter(None,['Nguyên nhân thu hồi: '+payload.reason if payload.reason else None,payload.note])) or None)
     if handover is not None:
-        recipient=get(db,m.User,payload.recipient_user_id)
+        recipient=get(db,m.User,payload.recipient_user_id) if issue else user
         row.handover_filename=handover['filename']
         row.handover_storage_key=handover['storage_key']
         row.handover_content_type=handover['content_type']
         row.handover_size=handover['size']
-        row.handover_snapshot={**handover['info'], 'recipient_name':recipient.name,
+        row.handover_snapshot={**handover['info'], 'document_kind':'ISSUE' if issue else 'RETURN','recipient_name':recipient.name,
             'warehouse_name':warehouse.name,'transaction_date':when.isoformat(),
             'asset_code':asset.code if asset else item.code,'serial':asset.serial if asset else None,
-            'model':asset.model if asset else None,'device_name':asset.name if asset else item.name,
+            'model':asset.model if asset else None,'device_name':asset_device_name(get(db,m.AssetType,asset.type_id).name,asset.model,asset.serial) if asset else item.name,
             'quantity':float(quantity),'unit':'thiết bị' if asset else item.unit,
-            'condition':payload.condition,'recipient_location':get(db,m.Location,payload.recipient_location_id).name if payload.recipient_location_id else None}
+            'condition':payload.condition,'reason':payload.reason,'recipient_location':get(db,m.Location,payload.recipient_location_id).name if payload.recipient_location_id else None}
     db.add(row); db.flush(); audit(db,user,payload.transaction_type.lower(),'inventory-transactions',row)
     if asset:
         emit(db,asset,'ISSUED' if issue else 'RETURNED',user,state_before,description=' · '.join(filter(None,[warehouse.name,payload.reason,payload.condition,payload.note])),when=when,source_ref='stock:'+str(row.id),extra_before={'maintenance':repair_before} if repair_before else None,extra_after={'maintenance':repair_after} if repair_after else None)

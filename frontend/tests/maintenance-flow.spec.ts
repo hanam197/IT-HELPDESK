@@ -1,4 +1,4 @@
-import { postStock } from './stock-helpers'
+import { postStock, attachReturnDocument } from './stock-helpers'
 import { test,expect } from '@playwright/test'
 
 for(const flow of ['onsite','resume','return','retire'])test('maintenance issue flow: '+flow,async({page})=>{
@@ -48,6 +48,7 @@ for(const flow of ['onsite','resume','return','retire'])test('maintenance issue 
   await page.getByRole('button',{name:'Thu hồi về kho',exact:true}).click()
   await expect(dialog.getByLabel('Tình trạng thu hồi')).toHaveValue('AVAILABLE')
   await dialog.getByLabel('Nguyên nhân thu hồi').fill('Thu hồi thiết bị về kho')
+ await attachReturnDocument(dialog)
  await dialog.getByRole('button',{name:'Xác nhận thu hồi'}).click()
  }else{
   await page.getByRole('button',{name:'Thao tác khác',exact:true}).click()

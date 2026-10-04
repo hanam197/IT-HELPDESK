@@ -1,4 +1,4 @@
-from stock_helpers import post_stock
+from stock_helpers import post_stock, return_stock
 import json
 import io
 from concurrent.futures import ThreadPoolExecutor
@@ -40,7 +40,7 @@ def test_location_and_assignment_history(client,meta):
     assert client.post(f'/api/assets/{id}/assign',json=body).status_code==200
     assert client.post(f'/api/assets/{id}/assign',json=body).status_code==422
     assert client.post(f'/api/assets/{id}/transfer',json={**body,'user_id':2,'condition_in':'Good condition'}).status_code==200
-    assert client.post(f'/api/assets/{id}/return',json={'warehouse_id':meta['warehouses'][0]['id'],'return_status':'AVAILABLE','condition_in':'Good condition'}).status_code==200
+    assert return_stock(client,id,json={'warehouse_id':meta['warehouses'][0]['id'],'return_status':'AVAILABLE','condition_in':'Good condition'}).status_code==201
     data=client.get(f'/api/assets/{id}/detail').json()
     assert len(data['location-history'])==5
     assert sum(x['ended_at'] is None for x in data['location-history'])==1
@@ -112,7 +112,8 @@ def test_concurrent_ticket_numbers(client,meta):
     assert len(set(numbers))==6
 
 def test_filters_reports_network_lookup(client,meta):
-    for q in ['7C:71:76:36:F5:F9','PRN-012','SWKHOMAT1','Gi3']:
+    switch_name=next(a['name'] for a in meta['assets'] if a['code']=='SW-005')
+    for q in ['7C:71:76:36:F5:F9','PRN-012',switch_name,'Gi3']:
         rows=client.get('/api/ip-addresses',params={'q':q}).json()['items']
         assert any(r['address']=='192.168.20.80' for r in rows)
     dash=client.get('/api/dashboard').json()
@@ -130,7 +131,7 @@ def test_maintenance_return_preserves_state(client,meta):
     assert client.post('/api/maintenance/'+str(maintenance['id'])+'/stop-asset').status_code==200
     assert client.get(f'/api/assets/{id}').json()['current_status']=='MAINTENANCE'
     assert client.get(f'/api/assets/{id}').json()['current_assignee_id']==4
-    assert client.post(f'/api/assets/{id}/return',json={'warehouse_id':meta['warehouses'][0]['id'],'return_status':'AVAILABLE','condition_in':'Repaired'}).status_code==200
+    assert return_stock(client,id,json={'warehouse_id':meta['warehouses'][0]['id'],'return_status':'AVAILABLE','condition_in':'Repaired'}).status_code==201
     assert client.get('/api/maintenance/'+str(maintenance['id'])).json()['end_at']
     assert client.get(f'/api/assets/{id}').json()['current_status']=='AVAILABLE'
     assert post_stock(client, json={'transaction_type':'ISSUE','warehouse_id':meta['warehouses'][0]['id'],'asset_id':id,'recipient_user_id':4,'condition':'Repaired'}).status_code==201

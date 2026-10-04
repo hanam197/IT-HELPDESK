@@ -340,17 +340,19 @@ def inventory_transaction(payload:StockMovement,user=Depends(current_user),db=De
     db.commit(); return enriched(db,row)
 
 @app.post('/api/inventory/issue-with-handover',status_code=201)
-async def issue_with_handover(payload:str=Form(...),handover_info:str=Form(...),file:UploadFile=File(...),user=Depends(current_user),db=Depends(get_db)):
+@app.post('/api/inventory/movement-with-document',status_code=201)
+async def stock_with_document(payload:str=Form(...),handover_info:str=Form(...),file:UploadFile=File(...),user=Depends(current_user),db=Depends(get_db)):
     authorize(user,'warehouses')
     try:
         movement=StockMovement.model_validate_json(payload)
         info=HandoverInfo.model_validate_json(handover_info)
     except ValidationError as exc:
         raise HTTPException(422,jsonable_encoder(exc.errors(),custom_encoder={ValueError:str}))
-    if movement.transaction_type!='ISSUE' or not movement.recipient_user_id:
-        raise HTTPException(422,'Biên bản bàn giao chỉ áp dụng cho xuất kho có người phụ trách')
+    if not (movement.transaction_type=='ISSUE' and movement.recipient_user_id or movement.transaction_type=='RECEIVE' and movement.asset_id):
+        raise HTTPException(422,'Biên bản chỉ áp dụng cho xuất kho có người phụ trách hoặc thu hồi thiết bị')
+    if movement.maintenance is not None: authorize(user,'maintenance')
     content=await file.read(10*1024*1024+1)
-    if not content: raise HTTPException(422,'Biên bản bàn giao không được trống')
+    if not content: raise HTTPException(422,'Biên bản không được trống')
     if len(content)>10*1024*1024: raise HTTPException(413,'Biên bản không được vượt quá 10 MB')
     content_type=None
     if content.startswith(b'%PDF-') and b'%%EOF' in content[-1024:]:
@@ -378,7 +380,7 @@ async def issue_with_handover(payload:str=Form(...),handover_info:str=Form(...),
 @app.get('/api/inventory/transactions/{id}/handover')
 def download_handover(id:int,user=Depends(current_user),db=Depends(get_db)):
     row=get(db,m.InventoryTransaction,id)
-    if not row.handover_storage_key: raise HTTPException(404,'Giao dịch chưa có biên bản bàn giao')
+    if not row.handover_storage_key: raise HTTPException(404,'Giao dịch chưa có biên bản đính kèm')
     path=Path(settings.upload_dir)/'handovers'/row.handover_storage_key
     if not path.is_file(): raise HTTPException(404,'Không tìm thấy tệp biên bản bàn giao')
     return FileResponse(path,filename=row.handover_filename,media_type=row.handover_content_type)

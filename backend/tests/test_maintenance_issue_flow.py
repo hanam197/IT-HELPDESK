@@ -1,4 +1,4 @@
-from stock_helpers import post_stock
+from stock_helpers import post_stock, return_stock
 """Maintenance is an issue record; only explicit operations change asset use/custody."""
 from datetime import datetime,timedelta,timezone
 import pytest
@@ -75,8 +75,8 @@ def test_four_required_flows_preserve_custody_and_history(client,meta,flow,assig
         assert current['current_assignee'] is None
         event_type='MAINTENANCE'
     elif flow=='return':
-        result=client.post(f"/api/assets/{asset['id']}/return",json={'warehouse_id':asset['warehouse_id'],'return_status':'AVAILABLE','condition_in':'Đã kiểm tra hoạt động'})
-        assert result.status_code==200,result.text
+        result=return_stock(client,asset['id'],json={'warehouse_id':asset['warehouse_id'],'return_status':'AVAILABLE','condition_in':'Đã kiểm tra hoạt động'})
+        assert result.status_code==201,result.text
         current=detail(client,asset)
         assert current['current_status']=='AVAILABLE' and current['warehouse_id']==asset['warehouse_id']
         assert current['current_location']==meta['warehouses'][0]['location_id']

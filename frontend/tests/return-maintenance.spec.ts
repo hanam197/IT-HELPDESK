@@ -1,4 +1,4 @@
-import { postStock } from './stock-helpers'
+import { postStock, attachReturnDocument } from './stock-helpers'
 import { test,expect } from '@playwright/test'
 test('return popup creates repair atomically and keeps table history',async({page})=>{
  await page.goto('/')
@@ -26,6 +26,7 @@ test('return popup creates repair atomically and keeps table history',async({pag
  await dialog.getByLabel('Người xử lý').selectOption('3')
  await dialog.getByText('Thông tin bổ sung',{exact:true}).click()
  await dialog.getByLabel('Nguyên nhân / Chẩn đoán').fill('Nghi nguồn hỏng')
+ await attachReturnDocument(dialog)
  await dialog.getByRole('button',{name:'Thu hồi và tạo bảo trì'}).click()
  await expect(dialog).not.toBeVisible()
  const current=await (await page.request.get(`/api/assets/${asset.id}/detail`)).json()

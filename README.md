@@ -223,3 +223,12 @@ Khi chọn người nhận, popup xuất kho có nút **In biên bản** theo `[
 Xuất kho có người nhận dùng `POST /api/inventory/issue-with-handover` (multipart: `payload`, `handover_info`, `file`). Endpoint JSON cũ từ chối xuất cho người nhận nếu thiếu biên bản. Xuất chỉ cho trạm vẫn dùng endpoint cũ. Upload và giao dịch được xử lý cùng nhau; khi lưu thất bại, hệ thống giữ nguyên tồn kho và xóa tệp chưa hoàn tất. Biên bản và thông tin tại thời điểm giao được lưu trong chứng từ; mở lịch sử tồn kho để tải bản đã ký hoặc in lại mẫu.
 
 Áp dụng migration `0011` bằng `alembic upgrade head`. Tệp lưu dưới `UPLOAD_DIR/handovers`; sao lưu thư mục này cùng database. Giao dịch cũ được giữ nguyên, các trường biên bản để trống.
+
+
+### Tên thiết bị và biên bản thu hồi
+
+Tên tài sản mới được tạo theo `Type - Model - S/N`, ví dụ `Laptop - Latitude 5530 - ABC123`. Popup nhập thiết bị hiển thị tên dự kiến; biên bản cấp phát và thu hồi dùng cùng quy tắc. Tên ghép tự cập nhật khi sửa model/serial của tài sản đang dùng tên tự sinh. Tên riêng của tài sản cũ được giữ nguyên; thông tin của biên bản đã lưu vẫn giữ theo thời điểm giao dịch.
+
+Thu hồi thiết bị bắt buộc đính kèm bản biên bản đã ký (PDF/JPG/PNG, tối đa 10 MB), kể cả thu hồi kèm tạo phiếu bảo trì. Popup có nút in mẫu **Biên bản thu hồi thiết bị**, tự điền người nhận về kho, thiết bị, ngày, tình trạng và lý do. Người giao mặc định là người phụ trách hiện tại; nếu chưa có thông tin, nhập tên người giao trong phần thông tin biên bản. API multipart chung: `POST /api/inventory/movement-with-document`, với `payload`, `handover_info`, `file`. Các endpoint JSON thu hồi không thể bỏ qua yêu cầu tệp ký. Giao dịch, kết thúc cấp phát, tệp và phiếu bảo trì được lưu cùng nhau; khi lỗi, tồn kho và cấp phát được giữ nguyên.
+
+Migration `0012` cho phép tên ghép dài đến 400 ký tự trên PostgreSQL. SQLite không giới hạn độ dài VARCHAR nên giữ nguyên bảng và dữ liệu; chỉ cập nhật phiên bản migration.

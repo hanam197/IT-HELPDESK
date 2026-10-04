@@ -1,4 +1,4 @@
-from stock_helpers import post_stock
+from stock_helpers import post_stock, return_stock
 from datetime import datetime, timedelta, timezone
 import io
 from PIL import Image
@@ -131,7 +131,8 @@ def test_complete_asset_lifecycle_and_retirement(client,meta):
     detail=client.get(f'/api/assets/{id}/detail').json()
     assert detail['handed_over_by']==actor
     assert detail['assigned_to']!=detail['handed_over_by']
-    assert client.post(f'/api/assets/{id}/return',json={'warehouse_id':meta['warehouses'][0]['id'],'return_status':'AVAILABLE','condition_in':'Good, returned'}).status_code==200
+    assert client.post(f'/api/assets/{id}/return',json={'warehouse_id':meta['warehouses'][0]['id'],'return_status':'AVAILABLE','condition_in':'Good, returned'}).status_code==422
+    assert post_stock(client,json={'transaction_type':'RECEIVE','asset_id':id,'warehouse_id':meta['warehouses'][0]['id'],'return_status':'AVAILABLE','condition':'Good, returned'}).status_code==201
     station=next(r for r in meta['locations'] if r['name']=='DG-01BD')
     assert client.post(f'/api/assets/{id}/move',json={'location_id':station['id'],'reason':'Service area'}).status_code==422
     mid=lambda group,code:next(r['id'] for r in meta['master-data'] if r['group']==group and r['code']==code)
@@ -169,7 +170,7 @@ def test_return_endpoint_requires_warehouse_and_records_stock(client,meta):
         assert current['warehouse_id'] is None and current['assignment_user_id']==4
         assert current['current_status']=='IN_USE'
     payload={'warehouse_id':warehouse['id'],'return_status':'AVAILABLE','condition_in':'Good','note':'Return to another warehouse'}
-    assert client.post(f'/api/assets/{id}/return',json=payload).status_code==200
+    assert return_stock(client,id,json=payload).status_code==201
     assert client.post(f'/api/assets/{id}/return',json=payload).status_code==422
     current=client.get(f'/api/assets/{id}/detail').json()
     assert current['warehouse_id']==warehouse['id'] and current['location_id']==warehouse['location_id']
@@ -190,8 +191,8 @@ def test_return_condition_required_and_repair_blocks_issue(client,meta):
         assert post_stock(client, json={**receipt,**extra}).status_code==422
         current=client.get(f'/api/assets/{id}/detail').json()
         assert current['current_status']=='IN_USE' and current['assignment_user_id']==4 and current['warehouse_id'] is None
-    result=client.post(f'/api/assets/{id}/return',json={'warehouse_id':warehouse,'condition_in':'Màn hình hỏng','return_status':'MAINTENANCE'})
-    assert result.status_code==200,result.text
+    result=return_stock(client,id,json={'warehouse_id':warehouse,'condition_in':'Màn hình hỏng','return_status':'MAINTENANCE'})
+    assert result.status_code==201,result.text
     current=client.get(f'/api/assets/{id}/detail').json()
     assert current['current_status']=='MAINTENANCE' and current['warehouse_id']==warehouse
     assert current['assignment_id'] is None
@@ -218,8 +219,8 @@ def test_return_uses_allowed_shared_asset_statuses(client,meta):
         assert post_stock(client, json=issue).status_code==201
         payload={'warehouse_id':asset['warehouse_id'],'return_status':status['id'],'condition_in':status['name']}
         if index%2:
-            result=client.post(f'/api/assets/{id}/return',json=payload)
-            assert result.status_code==200,result.text
+            result=return_stock(client,id,json=payload)
+            assert result.status_code==201,result.text
         else:
             result=post_stock(client, json={'transaction_type':'RECEIVE','warehouse_id':asset['warehouse_id'],'asset_id':id,'return_status':status['id'],'condition':status['name']})
             assert result.status_code==201,result.text

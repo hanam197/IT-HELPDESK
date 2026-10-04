@@ -32,6 +32,10 @@ def master(db, group, code):
     if not item: fail(f'Thiếu danh mục: {group}/{code}')
     return item.id
 
+def asset_device_name(type_name, model, serial):
+    return ' - '.join(str(value).strip() for value in [type_name,model,serial] if value and str(value).strip())
+
+
 def asset_code(model, serial):
     raw=f'{model}-{serial}'.upper()
     code=re.sub(r'[^A-Z0-9]+','-',raw).strip('-')
@@ -82,8 +86,10 @@ def validate(db, resource, data, obj=None):
         model=str(val('model') or '').strip(); serial=str(val('serial') or '').strip().upper()
         if not model: fail('Vui lòng nhập model')
         if not serial: fail('Vui lòng nhập số sê-ri')
-        if obj is None and not data.get('name'): data['name']=model
-        elif obj and 'model' in data and obj.name==obj.model: data['name']=model
+        kind=get(db,m.AssetType,val('type_id'))
+        auto_named=obj is not None and obj.name in {obj.model,asset_device_name(kind.name,obj.model,obj.serial)}
+        if obj is None or auto_named and (identity_changed or 'name' in data):
+            data['name']=asset_device_name(kind.name,model,serial)
         if obj is None or identity_changed:
             data['model']=model; data['serial']=serial
             if 'code' not in data: data['code']=asset_code(model,serial)

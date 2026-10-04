@@ -1,4 +1,4 @@
-from stock_helpers import post_stock
+from stock_helpers import post_stock, return_stock
 from fastapi.testclient import TestClient
 from app.main import app
 from test_warehouse import receive
@@ -9,7 +9,7 @@ def detail(client,id):
     return r.json()
 
 def command(client,id,path,payload):
-    r=client.post(f'/api/assets/{id}/{path}',json=payload); assert r.status_code==200,r.text
+    r=return_stock(client,id,json=payload) if path=='return' else client.post(f'/api/assets/{id}/{path}',json=payload); assert r.status_code==(201 if path=='return' else 200),r.text
     return r.json()
 
 def test_one_event_per_operation_current_state_and_reassign(client,meta):

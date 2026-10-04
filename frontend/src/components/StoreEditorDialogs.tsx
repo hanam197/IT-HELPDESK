@@ -1,5 +1,6 @@
 import * as Dialog from '@radix-ui/react-dialog'
 import { X, Check, LoaderCircle, Warehouse, Monitor, MapPin } from 'lucide-react'
+import { deviceName } from '../deviceName'
 import type { ReactNode } from 'react'
 import { type Row } from '../api'
 import { statusLabels, vi } from '../i18n'
@@ -13,7 +14,7 @@ export function AssetReceiptDialog(props: Props) {
  const {values,meta,pending,onChange}=props
  const input=(key:string,name:string,placeholder:string,required=false,type='text')=><label><span>{name}{required&&<b> *</b>}</span><input required={required} type={type} disabled={pending} value={values[key]||''} placeholder={placeholder} onChange={e=>onChange({[key]:e.target.value})}/></label>
  return <StoreDialog {...props} title="Nhập thiết bị" description="Tiếp nhận thiết bị hoặc linh kiện mới vào kho.">
-  <div className="store-form-notice"><Monitor size={20}/><span>Mã thiết bị được tạo tự động.<small>Mỗi thiết bị được quản lý riêng theo số sê-ri.</small></span></div>
+  <div className="store-form-notice"><Monitor size={20}/><span>{deviceName(values,meta)||'Tên và mã thiết bị được tạo tự động.'}<small>Tên thiết bị = Loại tài sản + Model + S/N.</small></span></div>
   <div className="form-grid quick-maintenance-grid">
    <label><span>Loại tài sản<b> *</b></span><select required disabled={pending||!meta} value={values.type_id||''} onChange={e=>onChange({type_id:e.target.value})}><option value="">Chọn loại tài sản</option>{meta?.['asset-types'].map((row:Row)=><option key={row.id} value={row.id}>{row.name}</option>)}</select></label>
    <label><span>Kho tiếp nhận<b> *</b></span><select required disabled={pending||!meta} value={values.warehouse_id||''} onChange={e=>onChange({warehouse_id:e.target.value})}><option value="">Chọn kho</option>{meta?.warehouses.map((row:Row)=><option key={row.id} value={row.id}>{row.name}</option>)}</select></label>

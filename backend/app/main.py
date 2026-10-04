@@ -8,7 +8,7 @@ from collections import Counter
 import ipaddress
 import jwt
 import qrcode
-from fastapi import FastAPI, Depends, HTTPException, Request, Response, UploadFile, File, Query
+from fastapi import FastAPI, Depends, HTTPException, Request, Response, UploadFile, File, Form, Query
 from fastapi.responses import StreamingResponse, FileResponse, JSONResponse
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
@@ -18,7 +18,7 @@ from openpyxl import Workbook, load_workbook
 from PIL import Image, UnidentifiedImageError
 from .database import get_db, settings
 from . import models as m
-from .schemas import RESOURCES, READ_ONLY, SCHEMAS, Login, Move, Assign, WarehouseReturn, Transfer, Comment, StockMovement, Retire, Reassign
+from .schemas import RESOURCES, READ_ONLY, SCHEMAS, Login, Move, Assign, WarehouseReturn, Transfer, Comment, StockMovement, HandoverInfo, Retire, Reassign
 from .security import current_user, authorize, passwords, check_login_limit
 from .services import get, serialize, save, audit, activity, move, assign, master, next_number, retire_asset, reassign_asset, dispose_asset, stop_asset_for_maintenance
 
@@ -108,6 +108,8 @@ def enriched(db,obj):
         data['replacement_assets']=[enriched(db,part) for part_id in (obj.replacement_asset_ids or []) if (part:=db.get(m.Asset,part_id)) is not None]
     if isinstance(obj,m.Location):
         data['photo_url']=f'/api/locations/{obj.id}/photo' if obj.photo else None
+    if isinstance(obj,m.InventoryTransaction):
+        data['handover_url']=f'/api/inventory/transactions/{obj.id}/handover' if obj.handover_storage_key else None
     if isinstance(obj,m.InventoryTransaction) and obj.recipient_location_id:
         data['recipient_location_label']=location_path(db,obj.recipient_location_id)
     if isinstance(obj,m.Asset):
@@ -336,6 +338,50 @@ def inventory_transaction(payload:StockMovement,user=Depends(current_user),db=De
     new_item=parse_payload('inventory-items',{**payload.new_item,'warehouse_id':payload.warehouse_id}) if payload.new_item is not None else None
     row=stock_movement(db,payload,user,new_item)
     db.commit(); return enriched(db,row)
+
+@app.post('/api/inventory/issue-with-handover',status_code=201)
+async def issue_with_handover(payload:str=Form(...),handover_info:str=Form(...),file:UploadFile=File(...),user=Depends(current_user),db=Depends(get_db)):
+    authorize(user,'warehouses')
+    try:
+        movement=StockMovement.model_validate_json(payload)
+        info=HandoverInfo.model_validate_json(handover_info)
+    except ValidationError as exc:
+        raise HTTPException(422,jsonable_encoder(exc.errors(),custom_encoder={ValueError:str}))
+    if movement.transaction_type!='ISSUE' or not movement.recipient_user_id:
+        raise HTTPException(422,'Biên bản bàn giao chỉ áp dụng cho xuất kho có người phụ trách')
+    content=await file.read(10*1024*1024+1)
+    if not content: raise HTTPException(422,'Biên bản bàn giao không được trống')
+    if len(content)>10*1024*1024: raise HTTPException(413,'Biên bản không được vượt quá 10 MB')
+    content_type=None
+    if content.startswith(b'%PDF-') and b'%%EOF' in content[-1024:]:
+        content_type='application/pdf'
+    else:
+        try:
+            image=Image.open(io.BytesIO(content))
+            if image.format not in {'JPEG','PNG'}: raise ValueError('Unsupported image')
+            content_type='image/jpeg' if image.format=='JPEG' else 'image/png'
+            image.verify()
+        except (UnidentifiedImageError,OSError,ValueError,Image.DecompressionBombError):
+            raise HTTPException(422,'Chỉ nhận biên bản PDF, JPG hoặc PNG hợp lệ')
+    filename=Path((file.filename or 'bien-ban-ban-giao').replace('\\','/')).name
+    if len(filename)>255: raise HTTPException(422,'Tên tệp không được vượt quá 255 ký tự')
+    key=secrets.token_hex(24); directory=Path(settings.upload_dir)/'handovers'; directory.mkdir(parents=True,exist_ok=True)
+    path=directory/key
+    try:
+        path.write_bytes(content)
+        row=stock_movement(db,movement,user,handover={'filename':filename,'storage_key':key,'content_type':content_type,'size':len(content),'info':info.model_dump()})
+        db.commit()
+    except Exception:
+        db.rollback(); path.unlink(missing_ok=True); raise
+    return enriched(db,row)
+
+@app.get('/api/inventory/transactions/{id}/handover')
+def download_handover(id:int,user=Depends(current_user),db=Depends(get_db)):
+    row=get(db,m.InventoryTransaction,id)
+    if not row.handover_storage_key: raise HTTPException(404,'Giao dịch chưa có biên bản bàn giao')
+    path=Path(settings.upload_dir)/'handovers'/row.handover_storage_key
+    if not path.is_file(): raise HTTPException(404,'Không tìm thấy tệp biên bản bàn giao')
+    return FileResponse(path,filename=row.handover_filename,media_type=row.handover_content_type)
 
 @app.post('/api/locations/{id}/photo')
 @app.post('/api/assets/{id}/photo')

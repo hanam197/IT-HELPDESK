@@ -156,6 +156,11 @@ class InventoryTransaction(Record, Base):
     condition: Mapped[str | None] = mapped_column(Text)
     performed_by: Mapped[int] = mapped_column(ForeignKey('users.id'))
     note: Mapped[str | None] = mapped_column(Text)
+    handover_filename: Mapped[str | None] = mapped_column(String(255))
+    handover_storage_key: Mapped[str | None] = mapped_column(String(100), unique=True)
+    handover_content_type: Mapped[str | None] = mapped_column(String(100))
+    handover_size: Mapped[int | None] = mapped_column(Integer)
+    handover_snapshot: Mapped[dict | None] = mapped_column(JSON)
 
 class Ticket(Record, Base):
     __tablename__ = 'tickets'

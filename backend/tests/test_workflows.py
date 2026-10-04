@@ -1,3 +1,4 @@
+from stock_helpers import post_stock
 import json
 import io
 from concurrent.futures import ThreadPoolExecutor
@@ -12,7 +13,7 @@ def asset(client,meta,code='TEST-001',type_name='Laptop'):
     response=client.post('/api/assets/register',json={'name':'Test device','model':'TESTMODEL','serial':code,'type_id':next(x['id'] for x in meta['asset-types'] if x['name']==type_name),'status_id':mid(meta,'asset_status','available'),'warehouse_id':meta['warehouses'][0]['id']})
     assert response.status_code==201,response.text
     row=response.json()
-    issued=client.post('/api/inventory/transactions',json={'transaction_type':'ISSUE','warehouse_id':row['warehouse_id'],'asset_id':row['id'],'recipient_location_id':location_id})
+    issued=post_stock(client, json={'transaction_type':'ISSUE','warehouse_id':row['warehouse_id'],'asset_id':row['id'],'recipient_location_id':location_id})
     assert issued.status_code==201,issued.text
     return row['id']
 
@@ -132,7 +133,7 @@ def test_maintenance_return_preserves_state(client,meta):
     assert client.post(f'/api/assets/{id}/return',json={'warehouse_id':meta['warehouses'][0]['id'],'return_status':'AVAILABLE','condition_in':'Repaired'}).status_code==200
     assert client.get('/api/maintenance/'+str(maintenance['id'])).json()['end_at']
     assert client.get(f'/api/assets/{id}').json()['current_status']=='AVAILABLE'
-    assert client.post('/api/inventory/transactions',json={'transaction_type':'ISSUE','warehouse_id':meta['warehouses'][0]['id'],'asset_id':id,'recipient_user_id':4,'condition':'Repaired'}).status_code==201
+    assert post_stock(client, json={'transaction_type':'ISSUE','warehouse_id':meta['warehouses'][0]['id'],'asset_id':id,'recipient_user_id':4,'condition':'Repaired'}).status_code==201
     assert client.patch('/api/maintenance/'+str(maintenance['id']),json={'note':'Invoice received'}).status_code==422
     assert client.get(f'/api/assets/{id}').json()['current_status']=='IN_USE'
 

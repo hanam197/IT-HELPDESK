@@ -1,3 +1,4 @@
+import { postStock } from './stock-helpers'
 import {test,expect} from '@playwright/test'
 test('quick maintenance completes immediately and retains custody',async({page})=>{
  await page.goto('/')
@@ -8,7 +9,7 @@ test('quick maintenance completes immediately and retains custody',async({page})
  const headers={'X-Requested-With':'Helpdesk'},meta=await (await page.request.get('/api/meta')).json()
  const response=await page.request.post('/api/assets/register',{headers,data:{model:'QUICK',serial:'QUICK-'+Date.now(),type_id:meta['asset-types'].find((r:any)=>r.name==='Laptop').id,warehouse_id:meta.warehouses[0].id}})
  expect(response.status()).toBe(201);const asset=await response.json()
- expect((await page.request.post('/api/inventory/transactions',{headers,data:{transaction_type:'ISSUE',asset_id:asset.id,warehouse_id:asset.warehouse_id,recipient_user_id:4}})).status()).toBe(201)
+ expect((await postStock(page.request,{transaction_type:'ISSUE',asset_id:asset.id,warehouse_id:asset.warehouse_id,recipient_user_id:4})).status()).toBe(201)
  await page.goto('/assets/'+asset.id)
  await page.locator('.asset-command-bar').getByRole('button',{name:'Bảo trì',exact:true}).click()
  const dialog=page.getByRole('dialog')

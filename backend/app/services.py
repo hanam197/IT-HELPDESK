@@ -19,7 +19,7 @@ def get(db, model, id):
 def serialize(obj):
     result = {}
     for c in inspect(type(obj)).columns:
-        if c.name in {'password_hash', 'storage_key'}: continue
+        if c.name in {'password_hash', 'storage_key', 'handover_storage_key'}: continue
         v = getattr(obj, c.name)
         result[c.name] = (v.replace(tzinfo=timezone.utc) if v.tzinfo is None else v.astimezone(timezone.utc)).isoformat() if isinstance(v, datetime) else v.isoformat() if isinstance(v,date) else float(v) if isinstance(v, Decimal) else v
     return result

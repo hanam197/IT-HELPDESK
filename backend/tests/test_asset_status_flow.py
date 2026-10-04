@@ -1,3 +1,4 @@
+from stock_helpers import post_stock
 import io
 import json
 import pytest
@@ -18,7 +19,7 @@ def mid(meta,group,code):
 
 
 def issue(client,asset):
-    result=client.post('/api/inventory/transactions',json={'transaction_type':'ISSUE','asset_id':asset['id'],'warehouse_id':asset['warehouse_id'],'recipient_user_id':4})
+    result=post_stock(client, json={'transaction_type':'ISSUE','asset_id':asset['id'],'warehouse_id':asset['warehouse_id'],'recipient_user_id':4})
     assert result.status_code==201,result.text
 
 

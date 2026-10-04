@@ -1,3 +1,4 @@
+import { postStock } from './stock-helpers'
 import { test,expect } from '@playwright/test'
 
 test('chuyển người phụ trách nguyên tử và xem lịch sử tiếng Việt',async({page})=>{
@@ -12,7 +13,7 @@ test('chuyển người phụ trách nguyên tử và xem lịch sử tiếng Vi
  const create=await page.request.post('/api/assets/register',{headers,data:{model:'AUDIT',serial:'REASSIGN-'+Date.now(),warehouse_id:meta.warehouses[0].id,type_id:meta['asset-types'].find((r:any)=>r.name==='Laptop').id}})
  expect(create.status()).toBe(201)
  const asset=await create.json()
- const issue=await page.request.post('/api/inventory/transactions',{headers,data:{transaction_type:'ISSUE',asset_id:asset.id,warehouse_id:asset.warehouse_id,recipient_user_id:4,recipient_location_id:station.id}})
+ const issue=await postStock(page.request,{transaction_type:'ISSUE',asset_id:asset.id,warehouse_id:asset.warehouse_id,recipient_user_id:4,recipient_location_id:station.id})
  expect(issue.status()).toBe(201)
  await page.goto('/assets/'+asset.id)
  await page.getByRole('button',{name:'Chuyển người phụ trách',exact:true}).click()

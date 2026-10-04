@@ -1,3 +1,4 @@
+import { postStock } from './stock-helpers'
 import { test,expect } from '@playwright/test'
 
 for(const flow of ['onsite','resume','return','retire'])test('maintenance issue flow: '+flow,async({page})=>{
@@ -13,7 +14,7 @@ for(const flow of ['onsite','resume','return','retire'])test('maintenance issue 
  expect(create.status()).toBe(201)
  const asset=await create.json()
  const station=meta.locations.find((r:any)=>r.name==='DG-01BD')
- const issue=await page.request.post('/api/inventory/transactions',{headers,data:{transaction_type:'ISSUE',asset_id:asset.id,warehouse_id:asset.warehouse_id,recipient_location_id:station.id,recipient_user_id:4}})
+ const issue=await postStock(page.request,{transaction_type:'ISSUE',asset_id:asset.id,warehouse_id:asset.warehouse_id,recipient_location_id:station.id,recipient_user_id:4})
  expect(issue.status()).toBe(201)
  const state=async()=>await (await page.request.get(`/api/assets/${asset.id}/detail`)).json()
  const created=await page.request.post('/api/maintenance',{headers,data:{asset_id:asset.id,type_id:meta['master-data'].find((r:any)=>r.group==='maintenance_type'&&r.code==='network').id,status_id:meta['master-data'].find((r:any)=>r.group==='maintenance_status'&&r.code==='open').id,problem:'Máy in mất kết nối '+flow,technician_id:3,estimate_hours:2}})
@@ -44,7 +45,7 @@ for(const flow of ['onsite','resume','return','retire'])test('maintenance issue 
   await page.getByRole('button',{name:'Hoàn tất',exact:true}).click()
  }else if(flow==='return'){
   await page.getByRole('button',{name:'Thao tác khác',exact:true}).click()
-  await page.getByRole('button',{name:'Thu hồi',exact:true}).click()
+  await page.getByRole('button',{name:'Thu hồi về kho',exact:true}).click()
   await expect(dialog.getByLabel('Tình trạng thu hồi')).toHaveValue('AVAILABLE')
   await dialog.getByLabel('Nguyên nhân thu hồi').fill('Thu hồi thiết bị về kho')
  await dialog.getByRole('button',{name:'Xác nhận thu hồi'}).click()
@@ -75,7 +76,7 @@ for(const flow of ['onsite','resume','return','retire'])test('maintenance issue 
  await page.keyboard.press('Escape')
  await page.goto('/maintenance')
  await page.getByRole('textbox',{name:'Tìm trong bảng'}).fill('Máy in mất kết nối '+flow)
- await expect(page.locator('tbody')).toContainText('Mạng')
+ await expect(page.locator('tbody')).toContainText(meta['master-data'].find((r:any)=>r.group==='maintenance_type'&&r.code==='network').name)
  await page.setViewportSize({width:390,height:844})
  await page.goto(url)
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true)

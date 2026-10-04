@@ -1,3 +1,4 @@
+import { postStock } from './stock-helpers'
 import {test,expect} from '@playwright/test'
 test('maintenance detail shows resolution steps, device and real duration',async({page})=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message))
@@ -8,7 +9,7 @@ test('maintenance detail shows resolution steps, device and real duration',async
  await expect(page.getByRole('heading',{name:'Tổng quan',exact:true})).toBeVisible()
  const headers={'X-Requested-With':'Helpdesk'},meta=await (await page.request.get('/api/meta')).json()
  const md=(g:string,c:string)=>meta['master-data'].find((r:any)=>r.group===g&&r.code===c).id
- const post=async(path:string,data:any)=>{const r=await page.request.post('/api'+path,{headers,data});expect(r.ok(),await r.text()).toBeTruthy();return r.json()}
+ const post=async(path:string,data:any)=>{const r=path==='/inventory/transactions'?await postStock(page.request,data):await page.request.post('/api'+path,{headers,data});expect(r.ok(),await r.text()).toBeTruthy();return r.json()}
  const serial='DETAIL-'+Date.now()
  const asset=await post('/assets/register',{model:'MFC-L5900',brand:'Brother',serial,type_id:meta['asset-types'].find((r:any)=>r.name==='Laptop').id,warehouse_id:meta.warehouses[0].id})
  await post('/inventory/transactions',{transaction_type:'ISSUE',asset_id:asset.id,warehouse_id:asset.warehouse_id,recipient_user_id:4,recipient_location_id:meta.locations.find((r:any)=>r.name==='DG-01BD').id})

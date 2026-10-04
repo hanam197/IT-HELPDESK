@@ -1,3 +1,4 @@
+import { postStock } from './stock-helpers'
 import { test,expect } from '@playwright/test'
 test('return popup creates repair atomically and keeps table history',async({page})=>{
  await page.goto('/')
@@ -8,7 +9,7 @@ test('return popup creates repair atomically and keeps table history',async({pag
  const meta=await (await page.request.get('/api/meta')).json(),headers={'X-Requested-With':'Helpdesk'}
  const res=await page.request.post('/api/assets/register',{headers,data:{model:'RETURNPOPUP',serial:'POPUP-'+Date.now(),type_id:meta['asset-types'].find((r:any)=>r.name==='Laptop').id,warehouse_id:meta.warehouses[0].id}})
  expect(res.status()).toBe(201);const asset=await res.json()
- expect((await page.request.post('/api/inventory/transactions',{headers,data:{transaction_type:'ISSUE',warehouse_id:asset.warehouse_id,asset_id:asset.id,recipient_user_id:4}})).status()).toBe(201)
+ expect((await postStock(page.request,{transaction_type:'ISSUE',warehouse_id:asset.warehouse_id,asset_id:asset.id,recipient_user_id:4})).status()).toBe(201)
  await page.goto('/assets/'+asset.id)
  await expect(page.locator('.asset-command-bar').getByRole('button',{name:'Thu hồi',exact:true})).toHaveCount(1)
  await expect(page.getByRole('button',{name:'Thu hồi về kho',exact:true})).toHaveCount(0)

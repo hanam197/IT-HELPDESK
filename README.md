@@ -214,3 +214,12 @@ Maintenance độc lập với Ticket. Tạo vấn đề không tự chuyển tr
 “Dừng thiết bị để sửa” chuyển IN_USE → MAINTENANCE và giữ Station/Assignee. Hoàn tất xử lý trả lại IN_USE khi đang dùng ngoài kho; muốn thu hồi phải dùng RETURN riêng. RETURN về AVAILABLE đồng thời đóng phiếu xử lý trong cùng transaction. Không sửa được thì dùng Ngừng sử dụng; thanh lý chỉ từ RETIRED.
 
 Chạy `alembic upgrade head` sau khi sao lưu để áp dụng migration 0008: bỏ Ticket FK, giữ nội dung xử lý và tham chiếu cũ trong Note. Xem [review, quy tắc và API Maintenance](docs/maintenance-flow.md).
+
+
+### Biên bản bàn giao khi xuất kho
+
+Khi chọn người nhận, popup xuất kho có nút **In biên bản** theo `[Template]BBBANGIAONHANTHIEtBI.pdf`, tự điền thiết bị/vật tư, người giao, người nhận và ngày giao. Thông tin địa điểm, bộ phận và mục đích có thể sửa trong “Thông tin trên biên bản”. Sau khi ký, tải bản PDF/JPG/PNG (tối đa 10 MB) rồi xác nhận xuất kho. Hệ thống yêu cầu tệp đính kèm; việc xác nhận chữ ký trên nội dung tệp do người thực hiện bàn giao kiểm tra.
+
+Xuất kho có người nhận dùng `POST /api/inventory/issue-with-handover` (multipart: `payload`, `handover_info`, `file`). Endpoint JSON cũ từ chối xuất cho người nhận nếu thiếu biên bản. Xuất chỉ cho trạm vẫn dùng endpoint cũ. Upload và giao dịch được xử lý cùng nhau; khi lưu thất bại, hệ thống giữ nguyên tồn kho và xóa tệp chưa hoàn tất. Biên bản và thông tin tại thời điểm giao được lưu trong chứng từ; mở lịch sử tồn kho để tải bản đã ký hoặc in lại mẫu.
+
+Áp dụng migration `0011` bằng `alembic upgrade head`. Tệp lưu dưới `UPLOAD_DIR/handovers`; sao lưu thư mục này cùng database. Giao dịch cũ được giữ nguyên, các trường biên bản để trống.

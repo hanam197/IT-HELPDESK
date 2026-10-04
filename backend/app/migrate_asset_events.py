@@ -1,5 +1,6 @@
 """One-time conversion of legacy records; original operation/audit rows remain intact."""
 from copy import deepcopy
+from types import SimpleNamespace
 from datetime import timezone
 from sqlalchemy import select, Table, MetaData
 from . import models as m
@@ -7,6 +8,8 @@ from .asset_events import EVENT_TYPES, STATUS_CODES, normalize_status, location_
 
 
 def upgrade_data(db):
+    # Read the schema present during revision 0005, independent of newer ORM fields.
+    stock_table=Table('inventory_transactions',MetaData(),autoload_with=db.connection())
     statuses={r.code:r for r in db.scalars(select(m.MasterData).where(m.MasterData.group=='asset_status'))}
     for status,code in STATUS_CODES.items():
         if code not in statuses:
@@ -29,7 +32,7 @@ def upgrade_data(db):
         if asset.current_assignee_id and asset.current_status not in {'MAINTENANCE','RETIRED','DISPOSED'}: asset.current_status='IN_USE'
         asset.status_id=statuses[STATUS_CODES[asset.current_status]].id
         if db.scalar(select(m.AssetOperation.id).where(m.AssetOperation.asset_id==asset.id,m.AssetOperation.operation_type.in_(EVENT_TYPES))): continue
-        stock=list(db.scalars(select(m.InventoryTransaction).where(m.InventoryTransaction.asset_id==asset.id).order_by(m.InventoryTransaction.transaction_date,m.InventoryTransaction.id)))
+        stock=[SimpleNamespace(**row) for row in db.execute(select(stock_table).where(stock_table.c.asset_id==asset.id).order_by(stock_table.c.transaction_date,stock_table.c.id)).mappings()]
         ops=list(db.scalars(select(m.AssetOperation).where(m.AssetOperation.asset_id==asset.id).order_by(m.AssetOperation.id)))
         audits=list(db.scalars(select(m.AuditLog).order_by(m.AuditLog.id)))
         related=[a for a in audits if (a.object_type=='assets' and a.object_id==asset.id) or (a.new_value or {}).get('asset_id')==asset.id]

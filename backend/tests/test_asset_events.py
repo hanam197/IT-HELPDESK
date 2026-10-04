@@ -1,3 +1,4 @@
+from stock_helpers import post_stock
 from fastapi.testclient import TestClient
 from app.main import app
 from test_warehouse import receive
@@ -15,7 +16,7 @@ def test_one_event_per_operation_current_state_and_reassign(client,meta):
     asset=receive(client,meta,'CANONICAL-001'); id=asset['id']; d=detail(client,id)
     assert d['current_status']=='AVAILABLE' and [e['event_type'] for e in d['lifecycle']]==['RECEIVED']
     station=next(r for r in meta['locations'] if r['name']=='DG-01BD')
-    issue=client.post('/api/inventory/transactions',json={'transaction_type':'ISSUE','warehouse_id':asset['warehouse_id'],'asset_id':id,'recipient_user_id':4,'recipient_location_id':station['id']})
+    issue=post_stock(client, json={'transaction_type':'ISSUE','warehouse_id':asset['warehouse_id'],'asset_id':id,'recipient_user_id':4,'recipient_location_id':station['id']})
     assert issue.status_code==201,issue.text
     d=detail(client,id)
     assert [e['event_type'] for e in d['lifecycle']]==['ISSUED','RECEIVED']
@@ -52,7 +53,7 @@ def test_maintenance_restores_previous_state_and_records_only_business_events(cl
         a=receive(client,meta,'MAINT-EVENT-'+str(index));id=a['id']
         if issued:
             station=next(r for r in meta['locations'] if r['name']=='DG-01BD')
-            assert client.post('/api/inventory/transactions',json={'transaction_type':'ISSUE','warehouse_id':a['warehouse_id'],'asset_id':id,'recipient_location_id':station['id']}).status_code==201
+            assert post_stock(client, json={'transaction_type':'ISSUE','warehouse_id':a['warehouse_id'],'asset_id':id,'recipient_location_id':station['id']}).status_code==201
         before=detail(client,id);count=len(before['lifecycle'])
         r=client.post('/api/maintenance',json={'asset_id':id,'type_id':master('maintenance_type','other'),'status_id':master('maintenance_status','open'),'technician_id':1,'problem':'Kiểm tra định kỳ'})
         assert r.status_code==201,r.text
@@ -86,8 +87,8 @@ def test_updated_only_for_important_changes_and_read_only_event_state(client,met
 
 def test_warehouse_return_is_one_returned_event(client,meta):
     a=receive(client,meta,'EVENT-STOCK-RETURN');id=a['id']
-    assert client.post('/api/inventory/transactions',json={'transaction_type':'ISSUE','warehouse_id':a['warehouse_id'],'asset_id':id,'recipient_user_id':4}).status_code==201
-    assert client.post('/api/inventory/transactions',json={'transaction_type':'RECEIVE','return_status':'AVAILABLE','warehouse_id':a['warehouse_id'],'asset_id':id}).status_code==201
+    assert post_stock(client, json={'transaction_type':'ISSUE','warehouse_id':a['warehouse_id'],'asset_id':id,'recipient_user_id':4}).status_code==201
+    assert post_stock(client, json={'transaction_type':'RECEIVE','return_status':'AVAILABLE','warehouse_id':a['warehouse_id'],'asset_id':id}).status_code==201
     d=detail(client,id)
     assert [e['event_type'] for e in d['lifecycle']]==['RETURNED','ISSUED','RECEIVED']
     assert d['current_status']=='AVAILABLE' and d['current_assignee'] is None and d['warehouse_id']==a['warehouse_id']

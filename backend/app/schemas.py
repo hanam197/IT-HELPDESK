@@ -81,6 +81,14 @@ class ReturnMaintenance(StrictSchema):
     problem: str = Field(min_length=1, max_length=50000)
     diagnosis: str | None = Field(default=None, max_length=50000)
 
+class HandoverInfo(StrictSchema):
+    sender_name: str = Field(min_length=1, max_length=150)
+    sender_department: str = Field(min_length=1, max_length=150)
+    recipient_department: str = Field(default='', max_length=150)
+    place: str = Field(min_length=1, max_length=500)
+    purpose: str = Field(default='Cấp mới', min_length=1, max_length=500)
+    city: str = Field(default='TP.HCM', min_length=1, max_length=100)
+
 class StockMovement(StrictSchema):
     reason: str | None = Field(default=None, min_length=3, max_length=2000)
     maintenance: ReturnMaintenance | None = None

@@ -1,3 +1,4 @@
+from stock_helpers import post_stock
 """Maintenance is an issue record; only explicit operations change asset use/custody."""
 from datetime import datetime,timedelta,timezone
 import pytest
@@ -22,7 +23,7 @@ def create_issue(client,meta,asset,**extra):
 def using_asset(client,meta,name,assigned=True):
     asset=receive(client,meta,name)
     station=next(r for r in meta['locations'] if r['name']=='DG-01BD')
-    response=client.post('/api/inventory/transactions',json={'transaction_type':'ISSUE','asset_id':asset['id'],'warehouse_id':asset['warehouse_id'],'recipient_location_id':station['id'],**({'recipient_user_id':4} if assigned else {})})
+    response=post_stock(client, json={'transaction_type':'ISSUE','asset_id':asset['id'],'warehouse_id':asset['warehouse_id'],'recipient_location_id':station['id'],**({'recipient_user_id':4} if assigned else {})})
     assert response.status_code==201,response.text
     return asset
 
@@ -147,7 +148,7 @@ def test_stop_permission_and_onsite_issue_does_not_block_issuance(client,meta):
     with TestClient(app,headers={'X-Requested-With':'Helpdesk'}) as viewer:
         assert viewer.post('/api/auth/login',json={'username':'viewer','password':'TestPassword2026!'}).status_code==200
         assert viewer.post(f"/api/maintenance/{issue['id']}/stop-asset").status_code==403
-    result=client.post('/api/inventory/transactions',json={'transaction_type':'ISSUE','asset_id':asset['id'],'warehouse_id':asset['warehouse_id'],'recipient_user_id':4})
+    result=post_stock(client, json={'transaction_type':'ISSUE','asset_id':asset['id'],'warehouse_id':asset['warehouse_id'],'recipient_user_id':4})
     assert result.status_code==201,result.text
     assert detail(client,asset)['current_status']=='IN_USE'
     assert client.get(f"/api/maintenance/{issue['id']}").json()['end_at'] is None
@@ -157,12 +158,12 @@ def test_return_starts_maintenance_atomically_and_can_issue_after_repair(client,
     asset=using_asset(client,meta,'RETURN-AND-REPAIR')
     payload={'transaction_type':'RECEIVE','asset_id':asset['id'],'warehouse_id':asset['warehouse_id'],'return_status':'MAINTENANCE','reason':'Máy không in được, cần kiểm tra','maintenance':{'type_id':mid(meta,'maintenance_type','hardware'),'technician_id':3,'problem':'Máy không in được','diagnosis':'Nghi lỗi cụm sấy'}}
     count=len(detail(client,asset)['lifecycle'])
-    invalid=client.post('/api/inventory/transactions',json={**payload,'maintenance':{**payload['maintenance'],'technician_id':999999}})
+    invalid=post_stock(client, json={**payload,'maintenance':{**payload['maintenance'],'technician_id':999999}})
     assert invalid.status_code in (404,422)
     unchanged=detail(client,asset)
     assert unchanged['current_status']=='IN_USE' and unchanged['warehouse_id'] is None
     assert unchanged['current_assignee']==4 and len(unchanged['lifecycle'])==count
-    response=client.post('/api/inventory/transactions',json=payload)
+    response=post_stock(client, json=payload)
     assert response.status_code==201,response.text
     current=detail(client,asset)
     assert current['current_status']=='MAINTENANCE' and current['warehouse_id']==asset['warehouse_id']
@@ -174,20 +175,20 @@ def test_return_starts_maintenance_atomically_and_can_issue_after_repair(client,
     assert repair['diagnosis']=='Nghi lỗi cụm sấy'
     assert client.patch(f"/api/maintenance/{repair['id']}",json={'status_id':mid(meta,'maintenance_status','completed'),'resolution_outcome':'FIXED','action_taken':'Thay cụm sấy, test OK'}).status_code==200
     assert detail(client,asset)['current_status']=='AVAILABLE'
-    assert client.post('/api/inventory/transactions',json={'transaction_type':'ISSUE','asset_id':asset['id'],'warehouse_id':asset['warehouse_id'],'recipient_user_id':4}).status_code==201
+    assert post_stock(client, json={'transaction_type':'ISSUE','asset_id':asset['id'],'warehouse_id':asset['warehouse_id'],'recipient_user_id':4}).status_code==201
     assert detail(client,asset)['current_status']=='IN_USE'
 
 
 def test_return_maintenance_rejects_wrong_status_and_duplicate_issue(client,meta):
     asset=using_asset(client,meta,'RETURN-REPAIR-VALIDATION')
     payload={'transaction_type':'RECEIVE','asset_id':asset['id'],'warehouse_id':asset['warehouse_id'],'return_status':'AVAILABLE','reason':'Thu hồi để sửa','maintenance':{'type_id':mid(meta,'maintenance_type','hardware'),'technician_id':3,'problem':'Không lên nguồn'}}
-    assert client.post('/api/inventory/transactions',json=payload).status_code==422
+    assert post_stock(client, json=payload).status_code==422
     payload['return_status']='MAINTENANCE'
     create_issue(client,meta,asset)
-    assert client.post('/api/inventory/transactions',json=payload).status_code==422
+    assert post_stock(client, json=payload).status_code==422
     assert detail(client,asset)['current_status']=='IN_USE'
     del payload['maintenance']
-    assert client.post('/api/inventory/transactions',json=payload).status_code==201
+    assert post_stock(client, json=payload).status_code==201
     assert detail(client,asset)['current_status']=='MAINTENANCE'
 
 

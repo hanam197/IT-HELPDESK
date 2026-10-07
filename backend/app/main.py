@@ -191,7 +191,7 @@ def query_rows(db,resource,user,q='',filters='{}',view='',location=''):
         stmt=stmt.where(m.Asset.current_assignee_id==int(values['assigned_user']) if values.get('assigned_user') else m.Asset.current_assignee_id!=None)
     if resource=='assets' and location:
         ids=[r.id for r in db.scalars(select(m.Location)) if location_path(db,r.id)==location]
-        stmt=stmt.where(m.Asset.current_location_id.in_(ids))
+        stmt=stmt.where(m.Asset.current_location_id==None) if location in {'Unassigned','Chưa có vị trí','Chưa gán vị trí'} else stmt.where(m.Asset.current_location_id.in_(ids))
     if q:
         cols=[c for c in inspect(model).columns if (isinstance(c.type,String) or c.name=='created_at') and c.name!='password_hash']
         conditions=[cast(c,String).ilike('%'+q+'%') for c in cols]
@@ -213,7 +213,8 @@ def query_rows(db,resource,user,q='',filters='{}',view='',location=''):
     return stmt
 
 @app.get('/api/dashboard')
-def dashboard(user=Depends(current_user),db=Depends(get_db)):
+def dashboard(days:int=Query(30,ge=7,le=90),user=Depends(current_user),db=Depends(get_db)):
+    from .dashboard_analytics import activity_analytics
     assets=[enriched(db,r) for r in db.scalars(select(m.Asset).where(m.Asset.archived==False))]
     maintenance=[enriched(db,r) for r in db.scalars(select(m.Maintenance).where(m.Maintenance.archived==False))]
     codes={r.id:r.code for r in db.scalars(select(m.MasterData))}
@@ -225,7 +226,7 @@ def dashboard(user=Depends(current_user),db=Depends(get_db)):
     for ip in db.scalars(select(m.IPAddress).where(m.IPAddress.archived==False)):
         if codes[ip.status_id]=='conflict': attention.append({'title':ip.address,'subtitle':'Xung đột địa chỉ IP','resource':'ip-addresses','id':ip.id})
     operations=[enriched(db,r) for r in db.scalars(select(m.AssetOperation).where(m.AssetOperation.operation_type.in_(EVENT_TYPES)).order_by(m.AssetOperation.operation_date.desc(),m.AssetOperation.id.desc()).limit(12))]
-    return {'stats':stats,'asset_type':distribution(assets,'type_label'),'asset_status':distribution(assets,'status_label'),'asset_location':distribution(assets,'location_label'),'operations':operations,'recent_returns':[r for r in operations if r['operation_type']=='RETURNED'][:5],'recent_assignments':[r for r in operations if r['operation_type']=='ISSUED'][:5],'attention':attention,'activities':[enriched(db,a) for a in db.scalars(select(m.AuditLog).order_by(m.AuditLog.id.desc()).limit(8))]}
+    return {'stats':stats,'analytics':activity_analytics(db,days),'asset_type':distribution(assets,'type_label'),'asset_status':distribution(assets,'status_label'),'asset_location':distribution(assets,'location_label'),'operations':operations,'recent_returns':[r for r in operations if r['operation_type']=='RETURNED'][:5],'recent_assignments':[r for r in operations if r['operation_type']=='ISSUED'][:5],'attention':attention,'activities':[enriched(db,a) for a in db.scalars(select(m.AuditLog).order_by(m.AuditLog.id.desc()).limit(8))]}
 
 @app.get('/api/search')
 def search(q:str=Query(min_length=2,max_length=150),user=Depends(current_user),db=Depends(get_db)):

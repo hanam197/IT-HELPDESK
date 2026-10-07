@@ -31,6 +31,8 @@ def build_schema(model, partial=False):
         if c.nullable: t = t | None
         default = None if partial or c.nullable else c.default.arg if c.default is not None and c.default.is_scalar else None if c.default is not None else ...
         if model is m.Asset and c.name=='name': default=None
+        if model in {m.IPAddress,m.SwitchPort} and c.name=='status_id': default=None
+        if model is m.SwitchPort and c.name=='mode_id': default=None
         if t is str:
             fields[c.name] = (t, Field(default=default, min_length=1, max_length=getattr(c.type, 'length', None) or 50000))
         else: fields[c.name] = (t, default)
@@ -40,6 +42,10 @@ def build_schema(model, partial=False):
         fields['resolution_outcome'] = (Literal['FIXED','UNREPAIRABLE'] | None, None)
         fields['replacement_asset_ids'] = (list[Annotated[int, Field(gt=0, strict=True)]] | None, Field(default=None, max_length=100))
         fields['estimate_hours'] = (float | None, Field(default=None, gt=0, allow_inf_nan=False))
+    if model is m.Asset:
+        fields['port_count'] = (Annotated[int, Field(strict=True, ge=1, le=512)] | None, None)
+        for key in ('uplink_port_count','sfp_port_count'):
+            fields[key] = (Annotated[int, Field(strict=True, ge=0, le=512)] | None, None)
     if model is m.User:
         fields['password'] = (str, Field(default=None if partial else ..., min_length=12, max_length=128))
     return create_model(model.__name__ + ('Update' if partial else 'Create'), __base__=StrictSchema, **fields)

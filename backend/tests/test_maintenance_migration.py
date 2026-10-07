@@ -15,6 +15,12 @@ def test_issue_migration_removes_ticket_fk_preserves_records_and_state(tmp_path)
     with sqlite3.connect(database) as db:
         # Recreate the previous schema after seeding with current application models.
         db.execute('ALTER TABLE maintenance DROP COLUMN replacement_asset_ids')
+        # Restore network columns too before replaying later migrations.
+        for column in ('port_count','uplink_port_count','sfp_port_count'): db.execute(f'ALTER TABLE assets DROP COLUMN {column}')
+        db.execute('ALTER TABLE subnets DROP COLUMN dhcp_start')
+        db.execute('ALTER TABLE subnets DROP COLUMN dhcp_end')
+        db.execute('ALTER TABLE ip_addresses DROP COLUMN assignment_type')
+        for column in ('hostname','mac','asset_id'): db.execute(f'ALTER TABLE ip_addresses DROP COLUMN {column}')
         db.execute('ALTER TABLE maintenance DROP COLUMN resolution_outcome')
         db.execute('ALTER TABLE maintenance ADD COLUMN ticket_id INTEGER REFERENCES tickets(id)')
         db.execute("UPDATE alembic_version SET version_num='0007'")

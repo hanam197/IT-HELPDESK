@@ -2,7 +2,8 @@
 from copy import deepcopy
 from types import SimpleNamespace
 from datetime import timezone
-from sqlalchemy import select, Table, MetaData
+from sqlalchemy import select, Table, MetaData, inspect
+from sqlalchemy.orm import load_only
 from . import models as m
 from .asset_events import EVENT_TYPES, STATUS_CODES, normalize_status, location_name
 
@@ -21,7 +22,9 @@ def upgrade_data(db):
         return {'id':id,'name':row.name if row else None} if id else None
     def utc(dt): return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
     def nearby(a,b): return abs((utc(a)-utc(b)).total_seconds())<1
-    for asset in db.scalars(select(m.Asset)):
+    asset_columns = {column['name'] for column in inspect(db.connection()).get_columns('assets')}
+    asset_fields = [getattr(m.Asset, column.name) for column in inspect(m.Asset).columns if column.name in asset_columns]
+    for asset in db.scalars(select(m.Asset).options(load_only(*asset_fields))):
         locations=list(db.scalars(select(m.LocationHistory).where(m.LocationHistory.asset_id==asset.id)))
         assignments=list(db.scalars(select(m.Assignment).where(m.Assignment.asset_id==asset.id)))
         current_loc=next((r for r in locations if r.ended_at is None),None)

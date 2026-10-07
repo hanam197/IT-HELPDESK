@@ -201,6 +201,9 @@ export function AssetDetail({
                   "brand",
                   "model",
                   "serial",
+                  "port_count",
+                  "uplink_port_count",
+                  "sfp_port_count",
                 ])}
               >
                 <AssetFields
@@ -289,7 +292,6 @@ export function AssetDetail({
           ) : tab === "Network" ? (
             <div className="detail-tables">
               {[
-                "interfaces",
                 "ip-addresses",
                 "connected_ports",
                 ...(at.has_ports ? ["switch-ports"] : []),

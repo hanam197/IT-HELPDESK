@@ -1,0 +1,13 @@
+"""Record physical port capacity without changing existing connections."""
+from alembic import op
+import sqlalchemy as sa
+revision='0015'
+down_revision='0014'
+branch_labels=None
+depends_on=None
+
+def upgrade():
+    op.add_column('assets',sa.Column('port_count',sa.Integer(),nullable=True))
+
+def downgrade():
+    op.drop_column('assets','port_count')

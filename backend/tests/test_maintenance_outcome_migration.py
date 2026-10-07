@@ -14,6 +14,12 @@ def test_migration_restores_known_location_without_inventing_legacy_outcome(tmp_
         db.execute('UPDATE assets SET current_location_id=NULL,current_status=?,status_id=?,warehouse_id=NULL WHERE id=?',('RETIRED',status,asset))
         db.execute('UPDATE location_history SET ended_at=CURRENT_TIMESTAMP WHERE asset_id=? AND ended_at IS NULL',(asset,))
         old_history=db.execute('SELECT * FROM location_history ORDER BY id').fetchall()
+        # Restore network columns too before replaying later migrations.
+        for column in ('port_count','uplink_port_count','sfp_port_count'): db.execute(f'ALTER TABLE assets DROP COLUMN {column}')
+        db.execute('ALTER TABLE subnets DROP COLUMN dhcp_start')
+        db.execute('ALTER TABLE subnets DROP COLUMN dhcp_end')
+        db.execute('ALTER TABLE ip_addresses DROP COLUMN assignment_type')
+        for column in ('hostname','mac','asset_id'): db.execute(f'ALTER TABLE ip_addresses DROP COLUMN {column}')
         db.execute('ALTER TABLE maintenance DROP COLUMN resolution_outcome')
         db.execute("UPDATE alembic_version SET version_num='0009'")
     run('-m','alembic','upgrade','head')

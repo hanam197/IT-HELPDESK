@@ -1,0 +1,810 @@
+.net-workspace {
+  color: #14223b;
+}
+
+.net-workspace .page-heading p {
+  color: #63738c;
+  margin-top: 7px;
+}
+
+.net-site {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.net-workspace select {
+  border: 1px solid #dce5f0;
+  border-radius: 6px;
+  background: white;
+  padding: 8px 12px;
+  color: #1d2d47;
+  min-height: 35px;
+}
+
+.net-layout {
+  display: grid;
+  gap: 16px;
+}
+
+.net-layout.has-detail {
+  grid-template-columns: minmax(0,1fr) 310px;
+}
+
+.net-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.net-card {
+  background: white;
+  border: 1px solid #dee7f2;
+  border-radius: 8px;
+  padding: 18px;
+  box-shadow: 0 2px 8px #18376005;
+  min-width: 0;
+}
+
+.net-stats {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr 1.15fr;
+  gap: 12px;
+}
+
+.net-card h3 {
+  font-size: 12px;
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  font-weight: 650;
+  margin: 0 0 14px;
+}
+
+.net-card h2 {
+  font-size: 17px;
+  font-weight: 650;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 10px;
+}
+
+.net-card small {
+  color: #657794;
+  font-size: 11px;
+}
+
+.net-card p {
+  font-size: 12px;
+  color: #657794;
+  line-height: 1.6;
+}
+
+.net-number {
+  display: block;
+  font-size: 29px;
+  line-height: 1.3;
+  margin-bottom: 4px;
+}
+
+.net-usage {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.net-usage strong {
+  font-size: 21px;
+  display: block;
+}
+
+.net-usage small {
+  display: block;
+  margin: 3px 0 9px;
+}
+
+.net-donut {
+  width: 96px;
+  height: 96px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+}
+
+.net-donut span {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: white;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.net-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  margin-top: 6px;
+}
+
+.net-legend b {
+  margin-left: auto;
+  padding-left: 15px;
+}
+
+.net-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: #0866f5;
+}
+
+.net-legend i.available {
+  background: #20b866;
+}
+
+.net-list {
+  padding: 0;
+  overflow: hidden;
+}
+
+.net-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  flex-wrap: wrap;
+}
+
+.net-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #dce5f0;
+  background: #fafcff;
+  border-radius: 5px;
+  padding: 8px 10px;
+  flex: 1;
+  min-width: 180px;
+  color: #677b99;
+}
+
+.net-search input {
+  border: 0;
+  background: none;
+  outline: 0;
+  width: 100%;
+  font-size: 12px;
+  padding: 0;
+  box-shadow: none;
+}
+
+.net-table-wrap {
+  overflow-x: auto;
+}
+
+.net-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.net-table th {
+  padding: 10px 12px;
+  background: #f4f7fb;
+  color: #253958;
+  font-weight: 600;
+  border-bottom: 1px solid #dde6f2;
+}
+
+.net-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #edf2f8;
+  max-width: 230px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.net-table tbody tr.interactive {
+  cursor: pointer;
+}
+
+.net-table tr:hover {
+  background: #f4f9ff;
+}
+
+.net-table tr.selected {
+  background: #dceeff;
+  color: #0060ea;
+}
+
+.net-table td button {
+  color: #0866f5;
+  background: none;
+  font-weight: 800;
+  padding: 2px 5px;
+}
+
+.net-link,.net-table a {
+  color: #0866f5;
+  font-weight: 550;
+}
+
+.net-progress {
+  display: inline-flex;
+  width: 65px;
+  height: 8px;
+  background: #e7edf5;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-right: 9px;
+}
+
+.net-progress i {
+  background: #22bd70;
+}
+
+.net-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  background: #edf1f7;
+  color: #53657c;
+  border-radius: 20px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.net-subnet-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.net-subnet-head small {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #0866f5;
+}
+
+.net-subnet-head h2 {
+  margin-top: 13px;
+}
+
+.net-subnet-head p {
+  margin: 0;
+}
+
+.net-subnet-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1.7fr repeat(4,1fr);
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.net-subnet-metrics>div {
+  border: 1px solid #e2eaf5;
+  padding: 12px 10px;
+  border-radius: 5px;
+}
+
+.net-subnet-metrics small {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.net-subnet-metrics strong {
+  font-size: 12px;
+}
+
+.net-subnet .net-tools {
+  padding: 10px 0;
+}
+
+.net-detail {
+  align-self: start;
+  position: sticky;
+  top: 15px;
+  padding: 18px 15px;
+}
+
+.net-detail-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.net-detail-title h2 {
+  font-size: 21px;
+}
+
+.net-detail-title button {
+  align-self: flex-start;
+  background: none;
+  color: #687991;
+}
+
+.net-detail-badges {
+  display: flex;
+  gap: 7px;
+  margin-bottom: 23px;
+}
+
+.net-detail-block {
+  margin-bottom: 22px;
+}
+
+.net-detail-block h3 {
+  margin-bottom: 10px;
+}
+
+.net-detail-block dl {
+  margin: 0;
+  padding-left: 24px;
+}
+
+.net-detail-block dl>div {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 6px;
+  font-size: 11px;
+  margin: 8px 0;
+}
+
+.net-detail-block dt {
+  color: #647797;
+}
+
+.net-detail-block dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.net-detail-block a,.net-detail h3 a {
+  color: #0866f5;
+}
+
+.net-detail h3 a {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.net-note {
+  background: #f8faff;
+  border: 1px solid #e1e9f3;
+  border-radius: 5px;
+  padding: 10px;
+  margin-bottom: 20px;
+}
+
+.net-mini-history>div {
+  padding: 0 0 12px 12px;
+  border-left: 2px solid #dce7f7;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 10px;
+}
+
+.net-detail footer {
+  display: flex;
+  gap: 7px;
+  border-top: 1px solid #edf2f8;
+  padding-top: 15px;
+  flex-wrap: wrap;
+}
+
+.net-detail footer button {
+  font-size: 11px;
+  padding: 8px 10px;
+}
+
+.net-view-asset {
+  padding: 8px;
+  color: #0866f5;
+  font-size: 11px;
+}
+
+.net-empty {
+  padding: 30px 18px;
+  text-align: center;
+  font-size: 12px;
+  color: #71819b;
+}
+
+.net-pagination {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 9px;
+  padding: 12px;
+  font-size: 11px;
+  color: #6b7c96;
+}
+
+.net-pagination span {
+  margin-right: auto;
+}
+
+.net-section-title {
+  padding: 18px 18px 0;
+}
+
+.net-history article {
+  display: flex;
+  gap: 12px;
+  padding: 15px 0;
+  border-bottom: 1px solid #edf2f8;
+  font-size: 12px;
+}
+
+.net-history small {
+  display: block;
+  margin: 6px 0;
+}
+
+.net-history pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: #f6f9fd;
+  padding: 15px;
+  max-height: 350px;
+  overflow: auto;
+  font-size: 11px;
+}
+
+@media (min-width:1600px) {
+  .net-layout.has-detail {
+    grid-template-columns: minmax(0,1fr) 330px;
+  }
+}
+
+@media (max-width:1200px) {
+  .net-stats {
+    grid-template-columns: repeat(2,minmax(0,1fr));
+  }
+  .net-layout.has-detail {
+    grid-template-columns: minmax(0,1fr) 280px;
+  }
+  .net-subnet-metrics {
+    grid-template-columns: repeat(3,minmax(0,1fr));
+  }
+}
+
+@media (max-width:850px) {
+  .net-layout.has-detail {
+    grid-template-columns: 1fr;
+  }
+  .net-detail {
+    position: static;
+    grid-row: 1;
+  }
+  .net-workspace .page-heading {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  .net-workspace .heading-actions {
+    flex-wrap: wrap;
+  }
+  .net-stats {
+    grid-template-columns: repeat(2,minmax(0,1fr));
+  }
+}
+
+@media (max-width:520px) {
+  .net-stats {
+    grid-template-columns: 1fr;
+  }
+  .net-subnet-metrics {
+    grid-template-columns: repeat(2,minmax(0,1fr));
+  }
+  .net-subnet-head {
+    gap: 12px;
+  }
+}
+
+.net-history-section > summary { padding: 15px 18px; cursor: pointer; font-weight: 600; color: #253958; }
+.net-subnet-metrics { grid-template-columns: 1fr 1.7fr repeat(3, 1fr); }
+@media(max-width: 850px) { .net-subnet-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* One workspace navigation; the sidebar stays a single link. */
+.net-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid #dce5f0;
+  margin: 0 0 18px;
+  overflow-x: auto;
+}
+.net-nav button {
+  white-space: nowrap;
+  padding: 11px 12px;
+  border-bottom: 2px solid transparent;
+  color: #63738c;
+  font-size: 12px;
+}
+.net-nav button.active {
+  border-color: #0866f5;
+  color: #0866f5;
+  font-weight: 650;
+}
+.net-tabs {
+  display: flex;
+  gap: 12px;
+  padding: 0 12px;
+  border-bottom: 1px solid #e6edf5;
+  overflow-x: auto;
+}
+.net-tabs button {
+  padding: 12px 16px;
+  border-bottom: 2px solid transparent;
+  color: #435a7b;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.net-tabs button.active {
+  border-color: #0866f5;
+  color: #0866f5;
+  font-weight: 600;
+}
+.net-workspace .net-tools .net-search {
+  padding: 8px 10px;
+  min-height: 35px;
+}
+.net-workspace .net-table th,
+.net-workspace .net-table td {
+  padding: 9px 12px;
+  font-size: 12px;
+}
+.net-layout.has-detail { grid-template-columns: minmax(0, 1fr) 320px; }
+.net-detail { top: 82px; }
+.net-detail-block dl > div { font-size: 12px; }
+.net-workspace .page-heading { margin-bottom: 16px; }
+.net-workspace .net-card { border-radius: 6px; }
+.net-device-breakdown { display: grid; gap: 8px; margin-top: 14px; }
+.net-device-breakdown > div { display: flex; align-items: center; gap: 9px; font-size: 11px; }
+.net-device-breakdown svg { color: #0866f5; background: #e7f2ff; padding: 4px; width: 25px; height: 25px; border-radius: 50%; }
+.net-device-breakdown b { margin-left: auto; }
+.net-subnet-metrics > div { position: relative; padding-left: 38px; }
+.net-subnet-metrics svg { position: absolute; top: 17px; left: 10px; color: #0866f5; }
+.net-subnet-head h2 .net-vlan-tag { background: #e3f0ff; color: #0866f5; border-radius: 4px; padding: 4px 8px; font-size: 11px; font-weight: 500; }
+.net-table .selected .net-progress i { background: #0866f5; }
+@media(max-width:1200px) { .net-layout.has-detail { grid-template-columns:minmax(0,1fr) 280px; } }
+@media(max-width:850px) { .net-layout.has-detail { grid-template-columns:1fr; } .net-detail { position:static; } }
+@media(max-width:520px) { .net-nav { gap:0; } .net-nav button { padding:10px 9px; } .net-tabs { gap:0; } .net-tabs button { padding:12px 10px; } }
+.net-stats { grid-template-columns: 1.35fr .9fr .9fr 1.15fr; }
+.net-stats .net-number { font-size: 26px; line-height: 1.15; }
+.net-usage { gap: 12px; }
+.net-donut { width: 88px; height: 88px; }
+.net-donut span { width: 62px; height: 62px; }
+.net-device-breakdown { gap: 4px; margin-top: 10px; }
+.net-device-breakdown svg { width: 20px; height: 20px; padding: 3px; }
+.net-legend { white-space: nowrap; }
+.net-usage small { font-size: 10px; }
+@media(max-width:1200px) { .net-stats { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media(max-width:520px) { .net-stats { grid-template-columns: 1fr; } }
+
+/* Compact overview and one shared control size throughout the workspace. */
+.net-workspace { --net-control-height: 36px; }
+.net-stats .net-card { height: 158px; padding: 14px; display: flex; flex-direction: column; }
+.net-stats .net-card h3 { margin-bottom: 9px; }
+.net-stats .net-number { font-size: 26px; line-height: 1.1; margin-bottom: 3px; }
+.net-stats .net-usage { flex: 1; gap: 12px; }
+.net-stats .net-donut { width: 72px; height: 72px; }
+.net-stats .net-donut span { width: 52px; height: 52px; font-size: 13px; }
+.net-stats .net-usage strong { font-size: 20px; }
+.net-stats .net-usage small { margin-bottom: 5px; }
+.net-stats .net-legend { margin-top: 5px; }
+.net-device-breakdown { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 5px 12px; margin-top: auto; }
+.net-device-breakdown > div { gap: 5px; font-size: 10px; }
+.net-summary-footer { display: flex; gap: 12px; margin-top: auto; padding-top: 12px; border-top: 1px solid #edf2f8; color: #60738d; font-size: 11px; }
+.net-summary-footer span { display: flex; justify-content: space-between; flex: 1; gap: 8px; }
+.net-summary-footer b { color: #223958; }
+.net-workspace .button,
+.net-workspace select { height: var(--net-control-height); min-height: var(--net-control-height); padding-top: 0; padding-bottom: 0; }
+.net-workspace .net-tools { align-items: center; gap: 8px; }
+.net-workspace .net-tools .net-search { height: var(--net-control-height); min-height: var(--net-control-height); padding: 0 10px; }
+.net-workspace .net-search input { height: 100%; min-height: 0; padding: 0; margin: 0; border: 0; border-radius: 0; box-shadow: none; line-height: 20px; }
+.net-workspace .net-search svg { flex-shrink: 0; }
+.net-workspace .net-legend b { padding-left: 8px; }
+
+.net-topology { padding:20px; }
+.net-topology > header { margin-bottom:18px; }
+.net-topology > header h2 { margin-bottom:6px; }
+.net-physical-ip {text-align:left;color:#2563eb;font-size:12px}
+@media(max-width:1200px) { .net-device-breakdown { gap:5px 10px; } }
+@media(max-width:700px) { .net-topology { padding:14px; } }
+
+.net-flow-canvas {height:620px;width:100%;min-width:0;background:#f8fafc;border-block:1px solid #e2e8f0}
+.net-flow-device {width:260px;padding:14px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 3px 12px #0f172a0c;display:grid;gap:6px}
+.net-flow-device.network {border-color:#93c5fd}
+.net-flow-device-title {display:flex;align-items:center;gap:8px;color:#2563eb;font-weight:700}
+.net-flow-device>span,.net-flow-device>small {font-size:12px;color:#64748b;overflow-wrap:anywhere}
+.net-flow-ports {display:flex;flex-wrap:wrap;gap:6px;margin-top:5px}
+.net-flow-ports>button {font-size:11px;border:1px solid #dbeafe;background:#eff6ff;border-radius:4px;padding:4px 7px;color:#1d4ed8}
+.net-flow-hint {font-size:12px;color:#64748b;padding:10px 16px;margin:0}
+@media(max-width:700px){.net-flow-canvas{height:520px}.net-flow-canvas .react-flow__minimap{display:none}}
+
+.net-port-toolbar{margin:0!important;border-bottom:1px solid #e2e8f0;padding:14px 16px!important}
+.net-port-result-count{font-size:12px;color:#64748b;white-space:nowrap}
+.net-port-layout{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:440px}
+.net-port-device-list{border-right:1px solid #e2e8f0;background:#f8fafc;padding:12px;max-height:750px;overflow-y:auto}
+.net-port-list-heading,.net-port-eyebrow{font-size:10px;font-weight:700;letter-spacing:.07em;color:#64748b;margin-bottom:12px}
+.net-port-device-option{display:flex;width:100%;gap:10px;text-align:left;border:1px solid transparent;border-radius:7px;padding:12px 9px;margin-bottom:6px;align-items:flex-start;color:#475569}
+.net-port-device-option>svg{flex-shrink:0;margin-top:2px;color:#64748b}
+.net-port-device-option>div{display:grid;gap:4px;min-width:0}
+.net-port-device-option strong{font-size:12px;color:#1e293b;overflow-wrap:anywhere}
+.net-port-device-option small,.net-port-device-option span{font-size:11px;color:#64748b;overflow-wrap:anywhere}
+.net-port-device-option.active{background:#eff6ff;border-color:#bfdbfe}
+.net-port-device-option.active strong,.net-port-device-option.active>svg{color:#2563eb}
+.net-port-device-option:hover{background:#edf2f7}
+.net-port-main{padding:20px;min-width:0}
+.net-port-device-heading,.net-port-inspector-title{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap}
+.net-port-device-heading h2{font-size:19px;margin:4px 0}
+.net-port-device-heading p,.net-port-inspector-title p{font-size:12px;color:#64748b;margin:5px 0}
+.net-port-device-heading>a{font-size:12px;color:#2563eb}
+.net-port-summary{display:flex;gap:32px;margin:18px 0;border-block:1px solid #e2e8f0;padding:14px 0}
+.net-port-summary>span{display:grid;gap:3px;font-size:11px;color:#64748b}
+.net-port-summary strong{font-size:22px;color:#1e293b}
+.net-port-summary .connected strong{color:#059669}
+.net-port-note,.net-port-footnote{font-size:11px;color:#64748b;margin:0 0 12px;line-height:1.6}
+.net-port-footnote{padding:10px 16px;margin:0;border-top:1px solid #e2e8f0}
+.net-workspace .net-tools.net-port-filters{margin:0 0 14px;padding:0}
+.net-port-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:8px}
+.net-port-tile{border:1px solid #e2e8f0;border-radius:7px;text-align:left;padding:11px;min-width:0;display:grid;gap:7px;background:#fafbfc}
+.net-port-tile>div{display:flex;align-items:center;gap:7px}
+.net-port-tile strong{font-size:12px;font-variant-numeric:tabular-nums}
+.net-port-tile i{margin-left:auto;background:#cbd5e1;width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.net-port-tile>span{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.net-port-tile>small{font-size:10px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.net-port-tile.connected{border-color:#bbf7d0;background:#f0fdf4}
+.net-port-tile.connected>div{color:#047857}
+.net-port-tile.connected i{background:#10b981}
+.net-port-tile.selected{border-color:#3b82f6;box-shadow:0 0 0 1px #3b82f6;background:#eff6ff}
+.net-port-tile:hover{border-color:#60a5fa}
+.net-port-pagination{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:11px;color:#64748b;margin:14px 0}
+.net-port-pagination>div{display:flex;gap:6px}
+.net-port-inspector{margin-top:18px;border:1px solid #bfdbfe;border-radius:8px;background:#f8fbff;padding:16px}
+.net-port-inspector h3{font-size:14px;margin:0}
+.net-port-connection{display:flex;gap:12px;align-items:flex-start;margin-top:14px}
+.net-port-connection>div{display:grid;gap:5px;min-width:0;overflow-wrap:anywhere}
+.net-port-connection>a,.net-port-connection a{font-size:13px;font-weight:600;color:#2563eb}
+.net-port-connection span,.net-port-connection small{font-size:12px;color:#64748b}
+@media(max-width:900px){.net-port-layout{grid-template-columns:200px minmax(0,1fr)}.net-port-main{padding:14px}}
+@media(max-width:700px){.net-port-layout{grid-template-columns:1fr}.net-port-device-list{max-height:230px;border-right:0;border-bottom:1px solid #e2e8f0}.net-port-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.net-port-summary{gap:24px}.net-port-toolbar{flex-wrap:wrap}.net-port-toolbar .net-search{flex-basis:100%}.net-port-filters{flex-wrap:wrap}.net-port-filters .net-search{flex-basis:100%}}
+
+.net-port-device-identity{display:flex;align-items:center;gap:16px;min-width:0}
+.net-device-visual{width:130px;height:66px;flex-shrink:0}
+.net-device-icon{color:#64748b;flex-shrink:0}
+.net-device-photo{width:120px;height:78px;object-fit:contain;border-radius:8px;background:white}
+.net-device-ap{width:68px;height:68px;border-radius:50%;background:linear-gradient(140deg,#fff,#e2e8f0);border:1px solid #cbd5e1;display:grid;place-items:center;color:#64748b;position:relative;box-shadow:0 3px 6px #0f172a12}
+.net-device-ap i{position:absolute;bottom:9px;left:31px;width:6px;height:3px;border-radius:3px;background:#60a5fa}
+.net-rack-legend{display:flex;gap:18px;flex-wrap:wrap;margin:0 0 12px;font-size:11px;color:#64748b}
+.net-rack-legend span{display:flex;gap:6px;align-items:center}
+.net-rack-legend i{width:8px;height:8px;border-radius:50%;background:#94a3b8}
+.net-rack-legend i.connected{background:#10b981}.net-rack-legend i.selected{background:#3b82f6}
+.net-switch-face{border:1px solid #334155;background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:10px;padding:16px;box-shadow:inset 0 1px 0 #ffffff1c,0 4px 12px #0f172a14}
+.net-switch-face-title{display:flex;justify-content:space-between;gap:12px;margin-bottom:14px;color:#94a3b8;font-size:10px;font-weight:600;letter-spacing:.08em}
+.net-switch-face .net-port-grid{grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:10px}
+.net-switch-face .net-port-tile{background:#ffffff05;border-color:#334155;padding:9px 7px;gap:6px;color:#cbd5e1;text-align:center;justify-items:center}
+.net-switch-face .net-port-tile>div{width:100%;justify-content:space-between}
+.net-switch-face .net-port-tile strong{font-size:11px;color:#cbd5e1}
+.net-switch-face .net-port-tile i{margin-left:0;background:#64748b}
+.net-switch-face .net-port-tile>span{max-width:100%;font-size:10px;color:#94a3b8}
+.net-switch-face .net-port-tile>small{max-width:100%;font-size:9px;color:#94a3b8}
+.net-port-jack{width:55px;height:42px;filter:drop-shadow(0 2px 2px #0005)}
+.net-jack-frame{fill:#475569;stroke:#94a3b8;stroke-width:1}
+.net-jack-socket{fill:#020617;stroke:#1e293b;stroke-width:1}
+.net-jack-contact{stroke:#c4a65d;stroke-width:2}
+.net-switch-face .net-port-tile.connected{background:#10b9810d;border-color:#047857}
+.net-switch-face .net-port-tile.connected strong,.net-switch-face .net-port-tile.connected>span{color:#a7f3d0}
+.net-switch-face .net-port-tile.connected i{background:#34d399;box-shadow:0 0 6px #34d39970}
+.net-port-tile.connected .net-jack-frame{fill:#065f46;stroke:#34d399}
+.net-switch-face .net-port-tile.selected{border-color:#60a5fa;background:#3b82f622;box-shadow:0 0 0 1px #60a5fa}
+.net-switch-face .net-port-tile.selected i{background:#60a5fa;box-shadow:0 0 6px #60a5fa70}
+.net-port-tile.selected .net-jack-frame{fill:#1e40af;stroke:#93c5fd}
+.net-switch-face .net-port-tile:hover{border-color:#93c5fd}
+.net-port-path{display:flex;align-items:center;gap:16px;padding:22px 12px;margin-top:16px;background:#fff;border:1px solid #e2e8f0;border-radius:8px}
+.net-port-path-device{display:flex;flex-direction:column;align-items:center;gap:5px;flex:1;min-width:0;text-align:center}
+.net-port-path-device strong{font-size:12px;overflow-wrap:anywhere}
+.net-port-path-device small{font-size:10px;color:#64748b}
+.net-port-path-wire{width:110px;flex-shrink:0;display:grid;gap:8px;text-align:center;color:#64748b;font-size:11px}
+.net-port-path-wire i{height:0;border-top:2px dashed #cbd5e1;position:relative}
+.net-port-path-wire.connected i{border-top-style:solid;border-color:#10b981}
+.net-port-path-wire i:after{content:'';position:absolute;right:0;top:-5px;width:7px;height:7px;border-top:2px solid #94a3b8;border-right:2px solid #94a3b8;transform:rotate(45deg)}
+.net-port-path-wire.connected i:after{border-color:#10b981}
+@media(max-width:700px){.net-port-device-identity{gap:10px}.net-port-device-identity .net-device-visual{width:85px}.net-switch-face{padding:10px}.net-switch-face .net-port-grid{grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:8px}.net-port-path{gap:8px;padding:14px 8px}.net-port-path-wire{width:44px}.net-port-path .net-device-visual{width:85px}.net-port-path .net-device-photo{width:80px;height:60px}}
+
+.net-port-filter-row{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:14px;font-size:11px;color:#64748b}
+.net-port-filter-row select{height:36px;min-width:140px;border:1px solid #dbe5f1;border-radius:6px;padding:0 10px;background:#fff;font-size:12px}
+.net-port-clusters{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
+.net-port-cluster{flex:1;min-width:180px;max-width:100%;border:1px solid #334155;border-radius:7px;padding:12px;background:#ffffff03}
+.net-port-cluster.normal{flex:4;min-width:min(100%,300px)}
+.net-port-cluster>header{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px;color:#cbd5e1;font-size:11px}
+.net-port-cluster>header span{font-size:10px;color:#94a3b8}
+.net-port-cluster.uplink>header strong{color:#93c5fd}.net-port-cluster.sfp>header strong{color:#c4b5fd}
+.net-port-cluster-empty{font-size:10px;color:#94a3b8;margin:0;line-height:1.5}
+.net-port-slot{position:relative;min-width:0}
+.net-port-slot .net-port-tile{width:100%;height:100%;min-height:110px}
+.net-port-slot:has(.net-port-device-shortcut) .net-port-tile{padding-bottom:38px}
+.net-port-device-shortcut{position:absolute;bottom:7px;left:50%;transform:translateX(-50%);height:28px;width:36px;border:1px solid #475569;border-radius:4px;display:grid;place-items:center;background:#1e293b}
+.net-port-device-shortcut:hover{background:#334155;border-color:#93c5fd}
+.net-port-device-shortcut .net-device-icon{width:22px;height:22px;color:#a7f3d0}
+.net-port-device-shortcut .net-device-visual,.net-port-device-shortcut .net-device-photo{width:28px;height:24px}
+.net-port-device-shortcut .net-device-ap{width:22px;height:22px}.net-port-device-shortcut .net-device-ap svg{width:14px;height:14px}.net-port-device-shortcut .net-device-ap i{display:none}
+.net-port-path-device>a{border-radius:7px;padding:4px}.net-port-path-device>a:hover{background:#eff6ff}
+@media(max-width:700px){.net-port-cluster{min-width:0;width:100%;flex-basis:100%}.net-port-filter-row{flex-wrap:wrap}.net-port-path-device .net-device-icon{width:45px}}
+
+.net-port-stat-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:20px 0 12px}
+.net-port-stat{display:grid;gap:8px;border:1px solid #e2e8f0;border-radius:9px;padding:15px;text-align:left;background:#fff;min-width:0}
+.net-port-stat>div{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:12px;font-weight:600;color:#64748b}
+.net-port-stat strong{font-size:28px;line-height:1.1;color:#1e293b;font-variant-numeric:tabular-nums}
+.net-port-stat small{font-size:10px;color:#64748b;line-height:1.5}
+.net-port-stat.connected{background:#f0fdf4;border-color:#bbf7d0}.net-port-stat.connected strong,.net-port-stat.connected svg{color:#059669}
+.net-port-stat.empty{background:#f8fafc}.net-port-stat.all svg{color:#2563eb}
+.net-port-stat.active{border-color:#60a5fa;box-shadow:0 0 0 1px #60a5fa}
+.net-port-stat:hover{border-color:#60a5fa}
+.net-port-utilization{margin-bottom:18px}.net-port-utilization>div:first-child{display:flex;justify-content:space-between;gap:12px;font-size:11px;color:#64748b;margin-bottom:7px}
+.net-port-utilization-track{height:5px;border-radius:5px;background:#e2e8f0;overflow:hidden}.net-port-utilization-track i{display:block;height:100%;background:#10b981;border-radius:5px}
+@media(max-width:700px){.net-port-stat-cards{gap:7px}.net-port-stat{padding:10px;gap:7px}.net-port-stat>div{font-size:10px;gap:4px}.net-port-stat>div svg{width:14px}.net-port-stat strong{font-size:23px}.net-port-stat small{font-size:9px}}
+
+.net-port-main{padding:14px 16px}
+.net-port-compact-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:12px;flex-wrap:wrap}
+.net-port-compact-heading .net-port-device-heading{flex:1;min-width:180px}
+.net-port-compact-heading .net-port-device-identity{gap:10px;min-width:0;width:100%}
+.net-port-compact-heading .net-port-device-identity>div{min-width:0}
+.net-port-compact-heading .net-port-device-identity>a{flex-shrink:0;border-radius:5px;padding:3px;background:#f1f5f9}
+.net-port-compact-heading .net-device-visual,.net-port-compact-heading .net-device-photo{width:52px;height:38px}
+.net-port-compact-heading .net-device-icon{width:36px;height:36px}
+.net-port-compact-heading .net-device-ap{width:36px;height:36px}.net-port-compact-heading .net-device-ap svg{width:18px}.net-port-compact-heading .net-device-ap i{display:none}
+.net-port-compact-heading h2{font-size:15px;margin:0 0 3px}
+.net-port-compact-heading p{font-size:11px;margin:0;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+.net-port-compact-heading .net-port-stat-cards{display:flex;gap:6px;margin:0}
+.net-port-compact-heading .net-port-stat{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px}
+.net-port-compact-heading .net-port-stat>span{font-size:11px;white-space:nowrap;color:#64748b}
+.net-port-compact-heading .net-port-stat strong{font-size:18px}
+.net-port-utilization{margin-bottom:10px}.net-port-utilization>div:first-child{display:none}.net-port-utilization-track{height:3px}
+.net-port-filter-row{margin-bottom:10px}.net-port-filter-row .net-rack-legend{margin:0;gap:12px}
+.net-port-filter-row select{height:30px;min-width:125px;font-size:11px}
+.net-port-inspector{padding:10px 12px;margin-top:12px}
+.net-port-inspector-title h3{font-size:12px}.net-port-inspector-title p{display:none}
+.net-port-path{padding:8px;margin-top:8px;gap:10px}
+.net-port-path .net-device-visual,.net-port-path .net-device-photo{width:68px;height:40px}.net-port-path .net-device-icon{width:36px;height:36px}
+.net-port-path .net-device-ap{width:36px;height:36px}.net-port-path .net-device-ap svg{width:18px}.net-port-path .net-device-ap i{display:none}
+.net-port-path-device{gap:3px}.net-port-path-device strong{font-size:11px}.net-port-path-device small{display:none}
+@media(max-width:700px){.net-port-main{padding:12px}.net-port-compact-heading{gap:10px}.net-port-compact-heading .net-port-stat-cards{width:100%}.net-port-compact-heading .net-port-stat{flex:1;justify-content:space-between;padding:8px;gap:4px}.net-port-compact-heading .net-port-stat>span{font-size:10px}.net-port-compact-heading .net-port-stat strong{font-size:17px}.net-port-filter-row .net-rack-legend{gap:9px;font-size:10px}}
+
+.net-port-layout{display:block;min-height:0}
+.net-port-device-strip{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #e2e8f0;background:#f8fafc;min-width:0}
+.net-port-device-strip .net-port-list-heading{margin:0;font-size:9px;white-space:nowrap;flex-shrink:0}
+.net-port-device-strip .net-port-device-list{display:flex;flex:1;gap:6px;padding:2px 0 5px;border:0;max-height:none;overflow-x:auto;overflow-y:hidden;min-width:0;scrollbar-width:thin;scrollbar-color:#cbd5e1 transparent;overscroll-behavior-x:contain}
+.net-port-device-strip .net-port-device-option{flex:0 0 auto;align-items:center;width:auto;gap:6px;margin:0;padding:7px 10px;border-color:#e2e8f0;background:white}
+.net-port-device-strip .net-port-device-option>svg{margin:0}
+.net-port-device-strip .net-port-device-option strong{font-size:11px;white-space:nowrap}
+.net-port-device-strip .net-port-device-option.active{border-color:#93c5fd;background:#eff6ff}
+.net-port-strip-arrow{display:grid;place-items:center;flex:0 0 26px;width:26px;height:30px;border:1px solid #e2e8f0;border-radius:5px;background:#fff;color:#64748b}
+.net-port-strip-arrow:hover{background:#eff6ff;color:#2563eb}
+.net-port-strip-empty{font-size:11px;white-space:nowrap;color:#64748b;padding:7px}
+@media(max-width:700px){.net-port-device-strip{gap:5px;padding:8px}.net-port-device-strip .net-port-list-heading{white-space:normal;width:64px;font-size:8px;line-height:1.5}.net-port-device-strip .net-port-device-option{padding:7px 8px}}
+
+.net-port-device-strip .net-port-strip-device-info{display:grid;gap:3px;min-width:0;max-width:200px}
+.net-port-device-strip .net-port-strip-device-info small{font-size:10px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.net-port-device-strip .net-port-device-option{align-items:center}
+@media(max-width:700px){.net-port-device-strip .net-port-strip-device-info{max-width:160px}}
+
+.net-port-pagination{justify-content:flex-end;gap:6px;margin:10px 0 0}
+.net-port-inspector{margin-top:12px}
+.net-port-workspace .net-port-main{padding-bottom:14px}

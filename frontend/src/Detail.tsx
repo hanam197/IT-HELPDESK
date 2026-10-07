@@ -102,7 +102,7 @@ export function Detail({
               )}
             </div>
           ) : (
-            <GenericOverview data={data} />
+            <GenericOverview data={data} resource={resource} />
           )}
         </section>
         <aside>
@@ -198,14 +198,19 @@ function OverviewSection({
     </section>
   );
 }
-function GenericOverview({ data }: { data: Row }) {
+function GenericOverview({ data, resource }: { data: Row; resource: string }) {
   const hidden = new Set([
     "password_hash",
+    "port_count",
+    "uplink_port_count",
+    "sfp_port_count",
+    ...(resource === "switch-ports" ? ["mode_label", "native_vlan_label", "tagged_vlans_label"] : []),
     "archived",
     "id",
     "photo",
     "ticket_label",
     "allow_ticket",
+    ...(["ip-addresses", "switch-ports"].includes(resource) ? ["status_label", "interface_label"] : []),
   ]);
   const fields = Object.keys(data).filter(
     (k) =>

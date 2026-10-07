@@ -67,6 +67,21 @@ def utc(value):
 
 def validate(db, resource, data, obj=None):
     def val(k): return data.get(k, getattr(obj, k, None))
+    if resource == 'ip-addresses':
+        # An active IP record represents an address in use; device linkage is optional.
+        data['status_id'] = master(db, 'ip_status', 'used')
+        if 'interface_id' in data:
+            interface = get(db, m.NetworkInterface, data['interface_id']) if data['interface_id'] else None
+            data.update(asset_id=interface.asset_id if interface else None, mac=interface.mac if interface else None, hostname=interface.hostname if interface else None)
+        elif any(key in data for key in ('asset_id', 'mac', 'hostname')):
+            data['interface_id'] = None
+        if data.get('mac'):
+            mac = data['mac'].upper().replace('-', ':')
+            if not re.fullmatch(r'(?:[0-9A-F]{2}:){5}[0-9A-F]{2}', mac): fail('Địa chỉ MAC không hợp lệ')
+            data['mac'] = mac
+    if resource == 'switch-ports':
+        if val('status_id') is None: data['status_id'] = master(db, 'port_status', 'down')
+        if val('mode_id') is None: data['mode_id'] = master(db, 'port_mode', 'access')
     for field, group in GROUPS.get(resource, {}).items():
         value = val(field)
         if value is not None and get(db, m.MasterData, value).group != group: fail(f'{field} phải thuộc danh mục {group}')
@@ -87,6 +102,12 @@ def validate(db, resource, data, obj=None):
         if not model: fail('Vui lòng nhập model')
         if not serial: fail('Vui lòng nhập số sê-ri')
         kind=get(db,m.AssetType,val('type_id'))
+        for field,prefix in [('port_count','Gi'),('uplink_port_count','Uplink'),('sfp_port_count','SFP')]:
+            if val(field) is not None and kind.name.strip().lower() not in ('router','switch','ap','access point'): fail('Chỉ Router, Switch và AP được khai báo số cổng')
+            if obj and field in data:
+                for port in db.scalars(select(m.SwitchPort).where(m.SwitchPort.switch_id==obj.id,m.SwitchPort.archived==False)):
+                    match=re.fullmatch(prefix+r'0*(\d+)',port.name,re.I)
+                    if match and int(match.group(1))>(val(field) or 0): fail('Số cổng mới nhỏ hơn cổng đã ghi nhận kết nối')
         auto_named=obj is not None and obj.name in {obj.model,asset_device_name(kind.name,obj.model,obj.serial)}
         if obj is None or auto_named and (identity_changed or 'name' in data):
             data['name']=asset_device_name(kind.name,model,serial)
@@ -138,12 +159,20 @@ def validate(db, resource, data, obj=None):
             if val('dns'):
                 for dns in val('dns').split(','): ipaddress.ip_address(dns.strip())
         except ValueError: fail('Dải mạng, cổng mạng hoặc DNS không hợp lệ')
+        if bool(val('dhcp_start')) != bool(val('dhcp_end')): fail('Vui lòng nhập đủ hai đầu dải DHCP')
+        if val('dhcp_start'):
+            try:
+                start, end = ipaddress.ip_address(val('dhcp_start')), ipaddress.ip_address(val('dhcp_end'))
+                if start not in network or end not in network or int(start)>int(end): fail('Dải DHCP phải thuộc subnet và theo thứ tự tăng dần')
+                if network.version==4 and network.prefixlen<31 and (start==network.network_address or end==network.broadcast_address): fail('Dải DHCP không được chứa địa chỉ mạng hoặc quảng bá')
+            except ValueError: fail('Dải DHCP không hợp lệ')
         data['cidr'] = str(network)
         if get(db,m.VLAN,val('vlan_id')).site_id != val('site_id'): fail('VLAN và dải mạng phải thuộc cùng cơ sở')
         if obj and val('cidr') != obj.cidr:
             for ip in db.scalars(select(m.IPAddress).where(m.IPAddress.subnet_id == obj.id)):
                 if ipaddress.ip_address(ip.address) not in network: fail('Địa chỉ IP đã có sẽ nằm ngoài dải mạng')
     if resource == 'ip-addresses':
+        if val('assignment_type') not in {None, 'Static', 'DHCP'}: fail('Loại cấp phát phải là Static hoặc DHCP')
         try: address = ipaddress.ip_address(val('address'))
         except ValueError: fail('Địa chỉ IPv4/IPv6 không hợp lệ')
         subnet = get(db, m.Subnet, val('subnet_id'))
@@ -152,11 +181,23 @@ def validate(db, resource, data, obj=None):
         if network.version == 4 and network.prefixlen < 31 and address in (network.network_address, network.broadcast_address): fail('Không được cấp phát địa chỉ mạng hoặc địa chỉ quảng bá')
         data['address'] = str(address)
         code = get(db, m.MasterData, val('status_id')).code
-        if code == 'used' and not val('interface_id'): fail('IP đang sử dụng phải có giao diện mạng')
-        if code == 'available' and val('interface_id'): fail('IP sẵn sàng không được gắn giao diện mạng')
+
     if resource == 'switch-ports':
         switch = get(db,m.Asset,val('switch_id'))
-        if not get(db,m.AssetType,switch.type_id).has_ports: fail('Tài sản được chọn không có cổng switch')
+        asset_type = get(db,m.AssetType,switch.type_id)
+        if asset_type.name.strip().lower() not in ('router','switch','ap','access point'): fail('Thiết bị nguồn phải là Router, Switch hoặc AP')
+        if val('connected_asset_id'):
+            target=get(db,m.Asset,val('connected_asset_id'))
+            if not get(db,m.AssetType,target.type_id).track_network: fail('Thiết bị kết nối phải hỗ trợ mạng')
+        capacities={'gi':switch.port_count or 0,'uplink':switch.uplink_port_count or 0,'sfp':switch.sfp_port_count or 0}
+        if any(capacities.values()):
+            match=re.fullmatch(r'(Gi|Uplink|SFP)0*(\d+)',str(val('name')),re.I)
+            if not match or not 1<=int(match.group(2))<=capacities[match.group(1).lower()]: fail('Tên cổng phải thuộc số cổng đã khai báo')
+            prefix={'gi':'Gi','uplink':'Uplink','sfp':'SFP'}[match.group(1).lower()]
+            number=int(match.group(2)); data['name']=f'{prefix}{number:02d}'
+            for other in db.scalars(select(m.SwitchPort).where(m.SwitchPort.switch_id==switch.id,m.SwitchPort.archived==False,m.SwitchPort.id!=(obj.id if obj else -1))):
+                duplicate=re.fullmatch(prefix+r'0*(\d+)',other.name,re.I)
+                if duplicate and int(duplicate.group(1))==number: fail('Cổng này đã được ghi nhận; hãy sửa kết nối hiện có')
         if val('connected_asset_id') == val('switch_id'): fail('Switch không thể kết nối với chính nó')
         for vlan in val('tagged_vlans') or []: get(db,m.VLAN,int(vlan))
     if resource == 'maintenance':

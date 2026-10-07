@@ -232,3 +232,15 @@ Tên tài sản mới được tạo theo `Type - Model - S/N`, ví dụ `Laptop
 Thu hồi thiết bị bắt buộc đính kèm bản biên bản đã ký (PDF/JPG/PNG, tối đa 10 MB), kể cả thu hồi kèm tạo phiếu bảo trì. Popup có nút in mẫu **Biên bản thu hồi thiết bị**, tự điền người nhận về kho, thiết bị, ngày, tình trạng và lý do. Người giao mặc định là người phụ trách hiện tại; nếu chưa có thông tin, nhập tên người giao trong phần thông tin biên bản. API multipart chung: `POST /api/inventory/movement-with-document`, với `payload`, `handover_info`, `file`. Các endpoint JSON thu hồi không thể bỏ qua yêu cầu tệp ký. Giao dịch, kết thúc cấp phát, tệp và phiếu bảo trì được lưu cùng nhau; khi lỗi, tồn kho và cấp phát được giữ nguyên.
 
 Migration `0012` cho phép tên ghép dài đến 400 ký tự trên PostgreSQL. SQLite không giới hạn độ dài VARCHAR nên giữ nguyên bảng và dữ liệu; chỉ cập nhật phiên bản migration.
+
+### Không gian Mạng / IPAM
+
+Mở `/network`: một trang duy nhất với thống kê IP/VLAN/subnet/thiết bị, bộ chọn danh sách mạng, danh sách IP và khung chi tiết bên phải. Không có submenu dưới tiêu đề hoặc trong sidebar. Các tab Địa chỉ IP, Subnets, VLANs, Thiết bị mạng, Cổng switch và Sơ đồ mạng nằm trong khung bảng. Địa chỉ IP là tab mặc định; mở Subnets tự chọn subnet đầu tiên trong cơ sở/bộ lọc và hiển thị danh sách IP ngay. Sơ đồ mạng gồm VLAN → Subnet → IP/Thiết bị và Switch → Cổng → Thiết bị, lấy từ các liên kết đã ghi nhận; bấm node để xem subnet, IP hoặc tài sản. Các đường dẫn mạng cũ chuyển về `/network`. Tìm kiếm subnet và IP độc lập; lịch sử mạng mở ngay trên trang.
+
+IP đã ghi nhận được coi là đang dùng, không cần chọn trạng thái hoặc giao diện mạng. Thêm/sửa trực tiếp địa chỉ IP, subnet, tài sản (không bắt buộc), MAC, hostname, Static/DHCP và ghi chú. MAC được kiểm tra và chuẩn hóa. Địa chỉ chưa có bản ghi trong subnet là chưa sử dụng; thống kê lấy số bản ghi IP hiện hành, không phụ thuộc liên kết thiết bị. Database chặn trùng IP và backend chặn IP ngoài subnet, network/broadcast.
+
+Migration `0014` thêm thông tin thiết bị trực tiếp trên IP, sao chép dữ liệu giao diện cũ và đồng bộ trạng thái nội bộ về Used. Các dữ liệu và API giao diện cũ được giữ để tương thích. Sao lưu database trước `alembic upgrade head`. Liên kết IP trực tiếp xuất hiện trong chi tiết tài sản, trạm và tìm kiếm.
+
+DHCP Range là thông tin cấu hình, không điều khiển DHCP server. API nhập/xuất CSV/XLSX vẫn được giữ để tương thích, giao diện không có module nhập/xuất. Thiết bị mới nhập qua Kho theo vòng đời tài sản.
+
+Frontend IPAM tách cấu hình bảng tại `frontend/src/network/config.ts`, selectors/index tại `model.ts`, query tại `useNetwork.ts` và các component bảng/khung chi tiết. Module được tải riêng khi mở trang.

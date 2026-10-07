@@ -72,7 +72,7 @@ def me(user=Depends(current_user)): return serialize(user)
 @app.get('/api/meta')
 def metadata(user=Depends(current_user),db=Depends(get_db)):
     result={}
-    for key in ['users','master-data','asset-types','locations','assets','warehouses','inventory-items','vlans','subnets','interfaces','articles']:
+    for key in ['users','master-data','asset-types','locations','assets','warehouses','inventory-items','vlans','subnets','interfaces','articles','switch-ports']:
         rows=db.scalars(select(RESOURCES[key]).where(RESOURCES[key].archived == False)).all()
         result[key]=[({'id':r.id,'name':r.name,'username':r.username,'department':r.department} if key=='users' else ({**serialize(r),'path':location_path(db,r.id)} if key=='locations' else serialize(r))) for r in rows]
     statuses={r['code']:r for r in result['master-data'] if r['group']=='asset_status'}
@@ -145,16 +145,18 @@ def enriched(db,obj):
         interface=db.get(m.NetworkInterface,obj.interface_id) if obj.interface_id else None
         subnet=db.get(m.Subnet,obj.subnet_id)
         data['vlan_label']=db.get(m.VLAN,subnet.vlan_id).name
-        if interface:
-            asset=db.get(m.Asset,interface.asset_id); a=enriched(db,asset)
-            data.update(asset_id=asset.id,asset_label=asset.code,mac=interface.mac,hostname=interface.hostname,location_label=a['location_label'])
+        asset_id=obj.asset_id or (interface.asset_id if interface else None)
+        data.update(mac=obj.mac or (interface.mac if interface else None),hostname=obj.hostname or (interface.hostname if interface else None))
+        if asset_id:
+            asset=db.get(m.Asset,asset_id); a=enriched(db,asset)
+            data.update(asset_id=asset.id,asset_label=asset.code,location_label=a['location_label'])
             port=db.scalar(select(m.SwitchPort).where(m.SwitchPort.connected_asset_id==asset.id))
             if port: data.update(switch_label=db.get(m.Asset,port.switch_id).code,switch_name=db.get(m.Asset,port.switch_id).name,port=port.name)
     if isinstance(obj,m.SwitchPort):
         data['tagged_vlans_label']=', '.join(str(db.get(m.VLAN,id).tag) for id in obj.tagged_vlans if db.get(m.VLAN,id))
     if isinstance(obj,m.Subnet):
         network=ipaddress.ip_network(obj.cidr); total=network.num_addresses-(2 if network.version==4 and network.prefixlen<31 else 0)
-        used=db.scalar(select(func.count()).select_from(m.IPAddress).where(m.IPAddress.subnet_id==obj.id,m.IPAddress.interface_id!=None,m.IPAddress.archived==False))
+        used=db.scalar(select(func.count()).select_from(m.IPAddress).where(m.IPAddress.subnet_id==obj.id,m.IPAddress.archived==False))
         data.update(total_ips=total,used_ips=used,available_ips=total-used)
     return data
 
@@ -199,7 +201,7 @@ def query_rows(db,resource,user,q='',filters='{}',view='',location=''):
             matching_switches=select(m.Asset.id).where(or_(m.Asset.code.ilike(pattern),m.Asset.name.ilike(pattern)))
             connected=select(m.SwitchPort.connected_asset_id).where(or_(m.SwitchPort.name.ilike(pattern),m.SwitchPort.switch_id.in_(matching_switches)))
             interfaces=select(m.NetworkInterface.id).where(or_(m.NetworkInterface.mac.ilike(pattern),m.NetworkInterface.hostname.ilike(pattern),m.NetworkInterface.asset_id.in_(matching_assets),m.NetworkInterface.asset_id.in_(connected)))
-            conditions.append(m.IPAddress.interface_id.in_(interfaces))
+            conditions.extend([m.IPAddress.interface_id.in_(interfaces),m.IPAddress.asset_id.in_(matching_assets),m.IPAddress.asset_id.in_(connected)])
         if resource in {'asset-operations','inventory-transactions','location-history','assignments'}:
             for column in inspect(model).columns:
                 for fk in column.foreign_keys:
@@ -237,7 +239,9 @@ def search(q:str=Query(min_length=2,max_length=150),user=Depends(current_user),d
             if resource=='users': data={k:data[k] for k in ['id','name','username','department']}
             result.append({'resource':resource,**data})
             if resource=='interfaces': asset_ids.add(row.asset_id)
-            if resource=='ip-addresses' and row.interface_id: asset_ids.add(db.get(m.NetworkInterface,row.interface_id).asset_id)
+            if resource=='ip-addresses':
+                if row.asset_id: asset_ids.add(row.asset_id)
+                elif row.interface_id: asset_ids.add(db.get(m.NetworkInterface,row.interface_id).asset_id)
             if resource=='assets': asset_ids.add(row.id)
     found={r['id'] for r in result if r['resource']=='assets'}
     for id in asset_ids-found: result.append({'resource':'assets',**enriched(db,db.get(m.Asset,id))})
@@ -250,7 +254,7 @@ def asset_detail(id:int,user=Depends(current_user),db=Depends(get_db)):
     for resource,model,field in [('location-history',m.LocationHistory,'asset_id'),('assignments',m.Assignment,'asset_id'),('asset-operations',m.AssetOperation,'asset_id'),('interfaces',m.NetworkInterface,'asset_id'),('maintenance',m.Maintenance,'asset_id'),('switch-ports',m.SwitchPort,'switch_id')]:
         data[resource]=[enriched(db,r) for r in db.scalars(select(model).where(getattr(model,field)==id).order_by(model.id.desc()))]
     ids=[r['id'] for r in data['interfaces']]
-    data['ip-addresses']=[enriched(db,r) for r in db.scalars(select(m.IPAddress).where(m.IPAddress.interface_id.in_(ids)))]
+    data['ip-addresses']=[enriched(db,r) for r in db.scalars(select(m.IPAddress).where(or_(m.IPAddress.asset_id==id,m.IPAddress.interface_id.in_(ids)),m.IPAddress.archived==False))]
     data['connected_ports']=[enriched(db,r) for r in db.scalars(select(m.SwitchPort).where(m.SwitchPort.connected_asset_id==id))]
     data['audit-logs']=[enriched(db,r) for r in db.scalars(select(m.AuditLog).where(or_((m.AuditLog.object_type=='assets')&(m.AuditLog.object_id==id),m.AuditLog.new_value['asset_id'].as_integer()==id)).order_by(m.AuditLog.id.desc()))]
     asset_lifecycle(db,asset,data,enriched)
@@ -269,7 +273,7 @@ def location_detail(id:int,user=Depends(current_user),db=Depends(get_db)):
     asset_ids=[a.id for a in assets]
     data['assets']=[enriched(db,a) for a in assets]
     interfaces=select(m.NetworkInterface.id).where(m.NetworkInterface.asset_id.in_(asset_ids),m.NetworkInterface.archived==False)
-    data['network']=[enriched(db,r) for r in db.scalars(select(m.IPAddress).where(m.IPAddress.interface_id.in_(interfaces),m.IPAddress.archived==False))]
+    data['network']=[enriched(db,r) for r in db.scalars(select(m.IPAddress).where(or_(m.IPAddress.asset_id.in_(asset_ids),m.IPAddress.interface_id.in_(interfaces)),m.IPAddress.archived==False))]
     data['people']=[enriched(db,r) for r in db.scalars(select(m.Assignment).where(m.Assignment.asset_id.in_(asset_ids),m.Assignment.returned_at==None))]
     data['history']=[enriched(db,r) for r in db.scalars(select(m.LocationHistory).where(or_(m.LocationHistory.location_id.in_(scope),m.LocationHistory.from_location_id.in_(scope))).order_by(m.LocationHistory.created_at.desc()))]
     data['stock_movements']=[enriched(db,r) for r in db.scalars(select(m.InventoryTransaction).where(m.InventoryTransaction.recipient_location_id.in_(scope)).order_by(m.InventoryTransaction.transaction_date.desc()))]
@@ -523,7 +527,7 @@ def report_summary(resource:str,q:str='',filters:str='{}',view:str='',location:s
         totals['Active repairs']=sum(r['end_at'] is None for r in rows)
     if resource=='assignments': totals['Currently assigned']=sum(r['returned_at'] is None for r in rows)
     if resource=='switch-ports': totals['Connected ports']=sum(bool(r['connected_asset_id']) for r in rows)
-    if resource=='ip-addresses': totals['Allocated IPs']=sum(bool(r['interface_id']) for r in rows)
+    if resource=='ip-addresses': totals['Allocated IPs']=len(rows)
     groups={}
     for row in rows:
         key=str(row.get(group_by) or 'Unspecified') if group_by else 'All records'
@@ -549,6 +553,73 @@ def export(resource:str,format:str='csv',q:str='',filters:str='{}',view:str='',l
         buffer=io.BytesIO(('\ufeff'+out.getvalue()).encode()); mime='text/csv; charset=utf-8'
     else: raise HTTPException(422,'Vui lòng chọn định dạng CSV hoặc XLSX')
     return StreamingResponse(buffer,media_type=mime,headers={'Content-Disposition':f'attachment; filename="{resource}.{format}"'})
+
+# IPAM workspace uses existing assets/interfaces and the immutable audit trail.
+@app.get('/api/network/workspace')
+def network_workspace(user=Depends(current_user),db=Depends(get_db)):
+    resources=['vlans','subnets','ip-addresses','interfaces','switch-ports','locations']
+    result={key:[enriched(db,r) for r in db.scalars(select(RESOURCES[key]).where(RESOURCES[key].archived==False))] for key in resources}
+    types={t.id:t for t in db.scalars(select(m.AssetType))}
+    result['assets']=[enriched(db,a) for a in db.scalars(select(m.Asset).where(m.Asset.archived==False))]
+    result['devices']=[a for a in result['assets'] if types[a['type_id']].has_ports or types[a['type_id']].name.strip().lower()=='ap' or any(word in types[a['type_id']].name.lower() for word in ['router','switch','access point','nvr','định tuyến','bộ phát'])]
+    result['statuses']=[serialize(r) for r in db.scalars(select(m.MasterData).where(m.MasterData.group=='ip_status',m.MasterData.archived==False))]
+    result['history']=[]
+    for row in db.scalars(select(m.AuditLog).where(m.AuditLog.object_type.in_(['ip-addresses','interfaces','vlans','subnets','switch-ports'])).order_by(m.AuditLog.id.desc()).limit(500)):
+        data=serialize(row); actor=db.get(m.User,row.user_id) if row.user_id else None
+        data['actor']=actor.name if actor else 'Hệ thống'
+        old,new=row.old_value or {},row.new_value or {}
+        old_device=old.get('asset_id') or old.get('interface_id'); new_device=new.get('asset_id') or new.get('interface_id')
+        data['event']='Tạo mới' if not old else 'Gán IP' if row.object_type=='ip-addresses' and not old_device and new_device else 'Thu hồi IP' if row.object_type=='ip-addresses' and old_device and not new_device else 'Cập nhật'
+        result['history'].append(data)
+    result['conflicts']=[]
+    subnet_map={r.id:r for r in db.scalars(select(m.Subnet))}
+    for row in result['ip-addresses']:
+        subnet=subnet_map[row['subnet_id']]
+        reason='IP không thuộc subnet' if ipaddress.ip_address(row['address']) not in ipaddress.ip_network(subnet.cidr) else 'Được đánh dấu xung đột' if next((s['code'] for s in result['statuses'] if s['id']==row['status_id']),None)=='conflict' else None
+        if reason: result['conflicts'].append({**row,'reason':reason})
+    return result
+
+@app.get('/api/network/export/{resource}')
+def network_export(resource:str,user=Depends(current_user),db=Depends(get_db)):
+    if resource not in {'ip-addresses','subnets','interfaces'}: raise HTTPException(422,'Loại dữ liệu nhập/xuất không hợp lệ')
+    columns=list(SCHEMAS[resource][0].model_fields)
+    book=Workbook(); sheet=book.active; sheet.append(columns)
+    for row in db.scalars(select(RESOURCES[resource]).where(RESOURCES[resource].archived==False)):
+        sheet.append([("'"+value if value.startswith(('=','+','-','@')) else value) if isinstance(value:=getattr(row,key),str) else value for key in columns])
+    output=io.BytesIO(); book.save(output); output.seek(0)
+    return StreamingResponse(output,media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',headers={'Content-Disposition':f'attachment; filename="{resource}.xlsx"'})
+
+@app.post('/api/network/import/{resource}')
+async def network_import(resource:str,file:UploadFile=File(...),user=Depends(current_user),db=Depends(get_db)):
+    if resource not in {'ip-addresses','subnets','interfaces'}: raise HTTPException(422,'Loại dữ liệu nhập/xuất không hợp lệ')
+    authorize(user,resource)
+    content=await file.read(5*1024*1024+1)
+    if len(content)>5*1024*1024: raise HTTPException(422,'Tệp tối đa 5 MB')
+    try:
+        if (file.filename or '').lower().endswith('.csv'):
+            rows=list(csv.reader(io.StringIO(content.decode('utf-8-sig'))))
+        else:
+            book=load_workbook(io.BytesIO(content),read_only=True,data_only=False)
+            rows=list(book.active.iter_rows(values_only=True)); book.close()
+    except Exception: raise HTTPException(422,'Không đọc được tệp CSV/XLSX')
+    if not rows or len(rows)>2001: raise HTTPException(422,'Tệp phải có tiêu đề và tối đa 2.000 dòng')
+    headers=[str(k or '').strip() for k in rows[0]]
+    if len(set(headers))!=len(headers) or any(k not in SCHEMAS[resource][0].model_fields for k in headers): raise HTTPException(422,'Cột không hợp lệ; dùng tệp xuất làm mẫu')
+    key={'ip-addresses':'address','subnets':'cidr','interfaces':'mac'}[resource]
+    count=0
+    try:
+        for number,row in enumerate(rows[1:],2):
+            if not any(v is not None and v!='' for v in row): continue
+            payload={k:v for k,v in zip(headers,row) if v is not None and v!=''}
+            obj=db.scalar(select(RESOURCES[resource]).where(getattr(RESOURCES[resource],key)==payload.get(key)))
+            if obj and obj.archived: raise HTTPException(422,'Bản ghi đã lưu trữ')
+            data=parse_payload(resource,payload,bool(obj)); save(db,resource,data,user,obj); count+=1
+        db.commit()
+    except HTTPException as exc:
+        db.rollback(); raise HTTPException(exc.status_code,f'Dòng {number}: {exc.detail}')
+    except IntegrityError:
+        db.rollback(); raise HTTPException(409,f'Dòng {number}: IP/MAC/dải mạng trùng hoặc liên kết không hợp lệ')
+    return {'count':count}
 
 @app.get('/api/{resource}')
 def list_resource(resource:str,q:str='',filters:str='{}',page:int=Query(1,ge=1),page_size:int=Query(20,ge=1,le=100),sort:str='id',direction:str='desc',view:str='',location:str='',user=Depends(current_user),db=Depends(get_db)):

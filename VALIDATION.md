@@ -192,3 +192,42 @@ Các test chưa thay thế UAT với dữ liệu và quy trình thật. README n
 - Phiếu mở có hoàn tất và menu thao tác theo quyền/trạng thái; phiếu đóng chỉ chỉnh sửa/xem lịch sử. Bảng linh kiện trình bày nội dung parts_replaced theo dòng; nhà cung cấp/chi phí là dữ liệu chung của phiếu. Chưa có liên kết vật tư/chứng từ kho, không tạo số lượng hoặc số phiếu xuất giả.
 - TypeScript/Vite build: passed. Playwright maintenance-detail, maintenance-flow (4), quick-maintenance, return-maintenance: 7 distinct tests passed. Kiểm tra ảnh desktop/mobile và thời lượng 1 giờ 15 phút; test giao diện chạy lại sau chỉnh bảng linh kiện.
 - Không thay model/API/schema hoặc năm trạng thái Asset.
+
+## System audit and staging preparation — 2026-10-07
+
+- Authorized full business-data reset, retaining ADMIN accounts and configuration.
+  Applied offline after verified backups at `backups/20261007T064020949382Z/`:
+  SQLite database, uploads archive, before/after counts. Remaining business tables
+  are empty, 1 ADMIN remains; master data, 17 asset types, 30 locations and warehouse
+  configuration retained. Location images preserved. Non-ADMIN accounts removed.
+- Removed unused asset purchase_date, warranty_expiry, vendor, cost, notes and
+  asset_types.track_serial through revision 0017. Revision 0018 aligns legacy
+  nullable model/serial storage across dialects; new API writes still require both.
+  Corrected ORM unique indexes to match migrations. `alembic check` passes on
+  SQLite and PostgreSQL 16. No referenced historical tables were dropped.
+- Fixed successful logins incorrectly consuming the failed-login allowance;
+  repeated valid logins remain available while incorrect attempts still throttle.
+  Fixed table-cell remounts closing stock issue dialogs during background refresh.
+  Restored the retirement → disposal action and hid operational controls after disposal.
+- Final backend suite: **98/98 SQLite**, **98/98 PostgreSQL 16**, after PyJWT patch.
+  Browser suite: **36/36**, on disposable data via isolated ports 8011/5174.
+  TypeScript + Vite production build passes. Clean live database smoke: 11 major
+  pages, no API/JavaScript errors, mobile dashboard has no document overflow.
+- Frontend audit: source-map-js patched to 1.2.2; `npm audit fix` reports 0
+  vulnerabilities. Backend: PyJWT patched to 2.15.0 (PYSEC-2026-4141,
+  CVE-2026-102275); `pip-audit -r backend/requirements.lock --no-deps --disable-pip`
+  reports no known vulnerabilities. These checks cover published dependency
+  advisories, not a penetration test.
+- Runtime dependencies separated from developer test dependencies and pinned;
+  lock installed in a clean Python 3.12 environment. API import, PostgreSQL,
+  Argon2 password verification, JWT and QR generation smoke-tested. `pip check`
+  found no incompatible dependencies before the compatible PyJWT patch.
+- Private retained configuration bundle: `backups/staging-config.json` (mode 0600,
+  ignored by Git). SQLite → PostgreSQL import verified, including hierarchy and
+  ID sequences. PostgreSQL backup/reset/pg_restore verified in an isolated cluster.
+- Staging env example, secret-safe preflight, localhost-only entry port and deployment
+  runbook added: [STAGING.md](docs/STAGING.md). Preflight rejects placeholders and
+  passes generated secrets with an actual-style HTTPS origin; Compose YAML parsed.
+- **Not performed:** Docker image build / Compose startup (Docker unavailable),
+  deployment to a remote server, real domain/TLS/UAT. These remain host deployment
+  gates. Existing TestClient deprecation warnings remain in the test environment.

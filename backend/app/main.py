@@ -19,7 +19,7 @@ from PIL import Image, UnidentifiedImageError
 from .database import get_db, settings
 from . import models as m
 from .schemas import RESOURCES, READ_ONLY, SCHEMAS, Login, Move, WarehouseMove, Assign, WarehouseReturn, Transfer, Comment, StockMovement, HandoverInfo, Retire, Reassign
-from .security import current_user, authorize, passwords, check_login_limit
+from .security import current_user, authorize, passwords, check_login_limit, clear_login_failures
 from .services import get, serialize, save, audit, activity, move, assign, master, next_number, retire_asset, reassign_asset, dispose_asset, stop_asset_for_maintenance
 
 from .warehouse import receive_new_asset, stock_movement, transfer_warehouse
@@ -58,6 +58,7 @@ def login(payload: Login, request: Request, response: Response, db=Depends(get_d
     try: valid = passwords.verify(payload.password, user.password_hash if user else dummy)
     except Exception: valid = False
     if not user or not valid: raise HTTPException(401,'Tên đăng nhập hoặc mật khẩu không đúng')
+    clear_login_failures((request.client.host if request.client else 'local',payload.username))
     token = jwt.encode({'sub':str(user.id),'exp':datetime.now(timezone.utc)+timedelta(hours=8)},settings.secret_key,algorithm='HS256')
     response.set_cookie('helpdesk_session',token,httponly=True,secure=settings.secure_cookie,samesite='strict',max_age=28800)
     return serialize(user)

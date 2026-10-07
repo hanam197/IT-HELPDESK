@@ -16,6 +16,9 @@ def check_login_limit(key):
     if len(window) >= 10: raise HTTPException(429, 'Đăng nhập quá nhiều lần. Vui lòng thử lại sau 5 phút.')
     window.append(time.monotonic())
 
+def clear_login_failures(key):
+    attempts.pop(key, None)
+
 def current_user(request: Request, db=Depends(get_db)):
     token = request.cookies.get('helpdesk_session')
     if not token: raise HTTPException(401, 'Vui lòng đăng nhập')

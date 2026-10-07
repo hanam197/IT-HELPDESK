@@ -370,6 +370,7 @@ export const operationFields: Record<string, Field[]> = {
     f("note", false, "textarea"),
   ],
   retire: [ref("asset_id", "assets"), f("reason", true, "textarea")],
+  dispose: [ref("asset_id", "assets"), f("reason", true, "textarea")],
   'warehouse-move': [
     ref("asset_id", "assets"),
     { ...ref("warehouse_id", "warehouses"), label: "Kho đích" },

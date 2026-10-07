@@ -31,6 +31,10 @@ def build_schema(model, partial=False):
         if c.nullable: t = t | None
         default = None if partial or c.nullable else c.default.arg if c.default is not None and c.default.is_scalar else None if c.default is not None else ...
         if model is m.Asset and c.name=='name': default=None
+        # Legacy storage permits null identity; new writes require complete identity.
+        if model is m.Asset and c.name in {'model', 'serial'}:
+            t = str
+            default = None if partial else ...
         if model in {m.IPAddress,m.SwitchPort} and c.name=='status_id': default=None
         if model is m.SwitchPort and c.name=='mode_id': default=None
         if t is str:

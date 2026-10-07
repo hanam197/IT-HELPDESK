@@ -2,6 +2,9 @@
 
 Ứng dụng nội bộ end-to-end: **React + TypeScript + Vite → FastAPI → PostgreSQL**. Kiến trúc modular monolith, Asset là bản ghi trung tâm; vị trí và người chịu trách nhiệm là hai lịch sử độc lập.
 
+Deploy staging: xem [hướng dẫn staging](docs/STAGING.md), cấu hình `.env.staging.example`
+và chạy `python3 scripts/staging-preflight.py .env.staging` trước khi deploy.
+
 ## Chạy bằng Docker Compose
 
 Yêu cầu Docker Engine và Docker Compose v2.
@@ -34,7 +37,7 @@ Yêu cầu Python 3.12+, Node.js 22+, PostgreSQL 16+.
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install -r backend/requirements.txt
+.venv/bin/pip install -r backend/requirements-dev.txt
 npm ci --prefix frontend
 cp backend/.env.example backend/.env
 # Sửa backend/.env: DATABASE_URL, SECRET_KEY, SEED_PASSWORD.
@@ -76,7 +79,7 @@ Swagger: **http://localhost:8000/docs**, OpenAPI: `/openapi.json`. Đăng nhập
 
 ## Chức năng
 
-- **Dashboard:** 10 KPI, phân bố asset, hoạt động 7 ngày, attention và audit gần đây; liên kết drill-down.
+- **Dashboard:** 4 KPI, biểu đồ hoạt động 7/30/90 ngày, phân bố trạng thái/loại/vị trí, attention và lịch sử gần đây; liên kết drill-down.
 - **Assets:** tạo/sửa thiết bị, serial/code unique, upload ảnh JPG/PNG/WebP, import XLSX theo template, loại thiết bị có capability flags, Overview / Network / History. Tạo mới tại Warehouse, bắt buộc có receiving warehouse và ghi Asset + Location History + phiếu nhập kho trong cùng transaction. Trang inventory giữ xuất XLSX và không hiển thị CSV. QR mở `/assets/{id}` và in nhãn bằng trình duyệt.
 - **Operations:** move, assign, transfer, return; chuyển vị trí không thay đổi người chịu trách nhiệm. Assignment không làm thay đổi location. Thu hồi bắt buộc chọn kho nhận và một trong 5 trạng thái thiết bị từ danh mục dùng chung, kết thúc cấp phát và nhập kho trong cùng giao dịch, ghi tình trạng trả; lịch sử luôn được giữ lại.
 - **Network/IPAM:** VLAN, subnet IPv4/IPv6, gateway/DNS, interface/MAC/hostname, IP, switch port, native/tagged VLAN. Tìm IP/MAC/hostname/asset/switch/port. Một IP có duy nhất một bản ghi; V1 không cho phép gán trùng IP bằng override.

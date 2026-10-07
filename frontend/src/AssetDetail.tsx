@@ -52,7 +52,7 @@ export function AssetDetail({
   const writable = canWrite(user.role, "assets"),
     ops = canWrite(user.role, "operations"),
     at = data.asset_type || {},
-    retired = data.current_status === "RETIRED";
+    retired = ["RETIRED", "DISPOSED"].includes(data.current_status);
   const edit = (fieldKeys?: string[]) =>
     open({ resource: "assets", initial: data, edit: true, fieldKeys });
   const operation = (name: string) =>
@@ -157,6 +157,12 @@ export function AssetDetail({
                 </Button>
               )}
             </>
+          )}
+          {ops && data.current_status === "RETIRED" && (
+            <Button variant="outline" onClick={() => operation("dispose")}>
+              <Trash2 size={15} />
+              Thanh lý
+            </Button>
           )}
           <Button variant="outline" onClick={() => window.print()}>
             <Printer size={16} />

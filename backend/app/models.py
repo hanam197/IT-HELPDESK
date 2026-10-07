@@ -32,7 +32,6 @@ class AssetType(Record, Base):
     __tablename__ = 'asset_types'
     name: Mapped[str] = mapped_column(String(100), unique=True)
     prefix: Mapped[str] = mapped_column(String(20))
-    track_serial: Mapped[bool] = mapped_column(default=True)
     track_location: Mapped[bool] = mapped_column(default=True)
     allow_assignment: Mapped[bool] = mapped_column(default=False)
     allow_station: Mapped[bool] = mapped_column(default=True)
@@ -67,19 +66,14 @@ class Asset(Record, Base):
     type_id: Mapped[int] = mapped_column(ForeignKey('asset_types.id'))
     status_id: Mapped[int] = mapped_column(ForeignKey('master_data.id'))
     brand: Mapped[str | None] = mapped_column(String(100))
-    model: Mapped[str] = mapped_column(String(100))
-    serial: Mapped[str] = mapped_column(String(150), unique=True)
+    model: Mapped[str | None] = mapped_column(String(100))
+    serial: Mapped[str | None] = mapped_column(String(150), unique=True)
     port_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     uplink_port_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     sfp_port_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     received_date: Mapped[date | None] = mapped_column(Date)
     handover_date: Mapped[date | None] = mapped_column(Date)
-    purchase_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    warranty_expiry: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    vendor: Mapped[str | None] = mapped_column(String(150))
-    cost: Mapped[float | None] = mapped_column(Numeric(14, 2))
     description: Mapped[str | None] = mapped_column(Text)
-    notes: Mapped[str | None] = mapped_column(Text)
     photo: Mapped[str | None] = mapped_column(Text)
 
 class LocationHistory(Record, Base):
@@ -107,10 +101,11 @@ class Assignment(Record, Base):
     __table_args__ = (Index('uq_active_assignment', 'asset_id', unique=True, postgresql_where=text('returned_at IS NULL'), sqlite_where=text('returned_at IS NULL')),)
 
 class AssetOperation(Record, Base):
+    __table_args__ = (Index('uq_asset_event_source', 'source_ref', unique=True),)
     __tablename__ = 'asset_operations'
     before_state: Mapped[dict | None] = mapped_column(JSON)
     after_state: Mapped[dict | None] = mapped_column(JSON)
-    source_ref: Mapped[str | None] = mapped_column(String(120),unique=True)
+    source_ref: Mapped[str | None] = mapped_column(String(120))
     number: Mapped[str] = mapped_column(String(40), unique=True)
     asset_id: Mapped[int] = mapped_column(ForeignKey('assets.id'))
     operation_type: Mapped[str] = mapped_column(String(30))
@@ -145,6 +140,7 @@ class InventoryItem(Record, Base):
     description: Mapped[str | None] = mapped_column(Text)
 
 class InventoryTransaction(Record, Base):
+    __table_args__ = (Index('ix_stock_handover_key', 'handover_storage_key', unique=True),)
     __tablename__ = 'inventory_transactions'
     recipient_user_id: Mapped[int | None] = mapped_column(ForeignKey('users.id'))
     recipient_location_id: Mapped[int | None] = mapped_column(ForeignKey('locations.id'))
@@ -160,7 +156,7 @@ class InventoryTransaction(Record, Base):
     performed_by: Mapped[int] = mapped_column(ForeignKey('users.id'))
     note: Mapped[str | None] = mapped_column(Text)
     handover_filename: Mapped[str | None] = mapped_column(String(255))
-    handover_storage_key: Mapped[str | None] = mapped_column(String(100), unique=True)
+    handover_storage_key: Mapped[str | None] = mapped_column(String(100))
     handover_content_type: Mapped[str | None] = mapped_column(String(100))
     handover_size: Mapped[int | None] = mapped_column(Integer)
     handover_snapshot: Mapped[dict | None] = mapped_column(JSON)

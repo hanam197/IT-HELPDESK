@@ -1,4 +1,5 @@
 import { test,expect } from '@playwright/test'
+import { attachReturnDocument } from './stock-helpers'
 
 test('asset workspace, scoped editing, popup issue/return and retirement lifecycle',async({page})=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message))
@@ -47,11 +48,12 @@ test('asset workspace, scoped editing, popup issue/return and retirement lifecyc
  await page.getByRole('button',{name:'Thu hồi',exact:true}).click()
  dialog=page.getByRole('dialog')
  await expect(dialog.getByRole('combobox',{name:'Tài sản *',exact:true})).toHaveValue(String(asset.id))
- await expect(dialog.getByRole('combobox',{name:'Kho *',exact:true})).toBeEnabled()
- await dialog.getByRole('combobox',{name:'Kho *',exact:true}).selectOption(String(meta.warehouses[1].id))
- await expect(dialog.getByLabel('Tình trạng thu hồi').locator('option')).toHaveCount(4)
+ await expect(dialog.getByRole('combobox',{name:'Kho nhận *',exact:true})).toBeEnabled()
+ await dialog.getByRole('combobox',{name:'Kho nhận *',exact:true}).selectOption(String(meta.warehouses[1].id))
+ await expect(dialog.getByLabel('Tình trạng thu hồi').locator('option')).toHaveCount(3)
  await expect(dialog.getByLabel('Tình trạng thu hồi')).toHaveValue('AVAILABLE')
  await dialog.getByLabel('Nguyên nhân thu hồi').fill('Thu hồi thiết bị về kho')
+ await attachReturnDocument(dialog)
  await dialog.getByRole('button',{name:'Xác nhận thu hồi'}).click()
  await expect(dialog).not.toBeVisible()
  const returned=await (await page.request.get('/api/assets/'+asset.id+'/detail')).json()

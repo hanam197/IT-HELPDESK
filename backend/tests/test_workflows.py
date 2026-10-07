@@ -118,7 +118,13 @@ def test_filters_reports_network_lookup(client,meta):
         assert any(r['address']=='192.168.20.80' for r in rows)
     dash=client.get('/api/dashboard').json()
     assert 'Overdue tickets' not in dash['stats']
-    assert client.get('/api/assets',params={'location':'Q7 / OUTBOUND / DG-18BD'}).json()['total']==2
+    location='Q7 / OUTBOUND / DG-18BD'
+    response=client.get('/api/assets',params={'location':location,'page_size':100})
+    assert response.status_code==200
+    filtered=response.json()
+    assert {'PRN-012','AP-018'} <= {row['code'] for row in filtered['items']}
+    assert filtered['total']==len(filtered['items'])
+    assert all(row['location_label']==location for row in filtered['items'])
     report=client.get('/api/reports/maintenance/summary?group_by=asset_label').json()
     assert 'Total cost' in report['totals'] and report['groups']
     assert client.get('/api/reports/tickets/summary').json()['totals']['Avg resolution (hours)']>=0

@@ -70,8 +70,9 @@ def test_maintenance_restores_previous_state_and_records_only_business_events(cl
 
 def test_updated_only_for_important_changes_and_read_only_event_state(client,meta):
     a=receive(client,meta,'EVENT-UPDATES'); id=a['id']
-    for payload in [{'model':a['model']},{'notes':'Legacy note'}]:
+    for payload in [{'model':a['model']}]:
         assert client.patch(f'/api/assets/{id}',json=payload).status_code==200
+    assert client.patch(f'/api/assets/{id}',json={'notes':'Legacy note'}).status_code==422
     assert len(detail(client,id)['lifecycle'])==1
     assert client.patch(f'/api/assets/{id}',json={'description':'Thay đổi quan trọng'}).status_code==200
     d=detail(client,id);assert len(d['lifecycle'])==2 and d['lifecycle'][0]['event_type']=='UPDATED'
